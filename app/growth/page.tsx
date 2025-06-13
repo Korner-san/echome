@@ -31,7 +31,7 @@ export default function GrowthPage() {
   ]
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
+    <div dir="rtl" className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
       {/* Status Bar */}
       <div className="flex justify-between items-center px-4 py-2">
         <div className="text-sm font-medium">9:41</div>
@@ -104,50 +104,29 @@ export default function GrowthPage() {
         </div>
       </div>
 
-      {/* Bottom Tab Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#2F2F3A]/80 backdrop-blur-md">
-        <div className="flex justify-around items-center h-full px-4">
-          {[
-            { icon: BrainIcon, label: "Growth", active: true, path: "/growth" },
-            { icon: BookOpenIcon, label: "Journal", active: false, path: "/journal" },
-            { icon: MicIcon, label: "Voice", active: false, path: "/" },
-            { icon: BarChart3Icon, label: "Progress", active: false, path: "/progress" },
-            { icon: UserIcon, label: "Profile", active: false, path: "/profile" },
-          ].map((tab, index) => {
-            // Make the Voice tab special
-            if (tab.label === "Voice") {
-              return (
-                <Link
-                  key={index}
-                  href={tab.path}
-                  className={cn(
-                    "flex flex-col items-center justify-center -mt-6",
-                    "w-16 h-16 rounded-full bg-gradient-to-br from-[#C5DCF0] via-[#E0D6F0] to-[#FADDE3]",
-                    "shadow-[0_0_20px_rgba(224,214,240,0.6)]",
-                  )}
-                >
-                  <tab.icon size={24} className="text-[#2F2F3A]" />
-                  <span className="sr-only">Voice</span>
-                </Link>
-              )
-            }
-
-            return (
-              <Link
-                key={index}
-                href={tab.path}
-                className={cn(
-                  "flex flex-col items-center justify-center w-16 h-16 transition-all duration-200",
-                  tab.active ? "text-[#E0D6F0]" : "text-[#FAFAFA]/50 hover:text-[#FAFAFA]/80",
-                )}
-              >
-                <tab.icon size={22} className={cn("mb-1", tab.active && "drop-shadow-glow")} />
-                <span className={cn("text-xs font-medium", tab.active ? "opacity-100" : "opacity-70")}>
-                  {tab.label}
-                </span>
-              </Link>
-            )
-          })}
+      {/* Bottom Tab Bar - Updated Order: Journal, Growth, Chat, Progress, Profile */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
+        <div className="flex justify-around items-center py-3 px-6">
+          <Link href="/journal" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BookOpenIcon size={24} />
+            <span className="text-xs font-medium">Journal</span>
+          </Link>
+          <Link href="/growth" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
+            <BrainIcon size={24} />
+            <span className="text-xs font-medium">Growth</span>
+          </Link>
+          <Link href="/" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <MicIcon size={24} />
+            <span className="text-xs font-medium">Chat</span>
+          </Link>
+          <Link href="/progress" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BarChart3Icon size={24} />
+            <span className="text-xs font-medium">Progress</span>
+          </Link>
+          <Link href="/profile" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <UserIcon size={24} />
+            <span className="text-xs font-medium">Profile</span>
+          </Link>
         </div>
       </div>
     </div>

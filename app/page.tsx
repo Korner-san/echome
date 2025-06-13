@@ -3,7 +3,7 @@
 import { MicIcon, BrainIcon, BarChart3Icon, UserIcon, XIcon, CheckIcon, BookOpenIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useVoiceRecording } from "@/hooks/useVoiceRecording"
 
 interface Message {
@@ -13,29 +13,138 @@ interface Message {
   timestamp: Date
 }
 
+interface JournalTask {
+  id: string
+  content: string
+  urgency: 'מאוד חשוב' | 'חשוב' | 'אפשר לחכות' | 'מתי שתרצה'
+  date: Date
+  completed: boolean
+}
+
+const WELCOME_MESSAGES = [
+  "איך אתה באמת מרגיש היום?",
+  "אני כאן כדי להקשיב ולהדריך אותך — בקצב שלך.",
+  "אני כאן כדי ללוות אותך במסע ההתפתחות שלך.",
+  "על מה היית רוצה להרהר היום?"
+]
+
+// Waveform animation component
+const WaveformAnimation = () => {
+  const [bars, setBars] = useState<number[]>(Array(8).fill(0.3))
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBars(prev => prev.map(() => Math.random() * 0.8 + 0.2))
+    }, 150)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="flex items-center gap-1 h-8">
+      {bars.map((height, index) => (
+        <div
+          key={index}
+          className="w-1 bg-[#E0D6F0] rounded-full transition-all duration-150"
+          style={{ height: `${height * 100}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Recording timer component
+const RecordingTimer = ({ startTime }: { startTime: number }) => {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - startTime)
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [startTime])
+
+  const minutes = Math.floor(elapsed / 60000)
+  const seconds = Math.floor((elapsed % 60000) / 1000)
+
+  return (
+    <div className="text-[#E0D6F0] text-sm font-mono">
+      {minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+    </div>
+  )
+}
+
+// Task detection function
+const detectTask = (text: string): boolean => {
+  const taskKeywords = [
+    'משימה', 'נסה', 'הצעתי לך', 'ממליץ', 'כדאי לך', 'תעשה', 'תנסה',
+    'תכין', 'תתחיל', 'תמשיך', 'תזכור', 'תכתוב', 'תקרא', 'תלמד'
+  ]
+  
+  return taskKeywords.some(keyword => text.includes(keyword))
+}
+
+// Determine urgency based on content
+const determineUrgency = (text: string): JournalTask['urgency'] => {
+  if (text.includes('דחוף') || text.includes('מיידי') || text.includes('עכשיו')) {
+    return 'מאוד חשוב'
+  }
+  if (text.includes('חשוב') || text.includes('כדאי')) {
+    return 'חשוב'
+  }
+  if (text.includes('בזמנך') || text.includes('כשתוכל')) {
+    return 'מתי שתרצה'
+  }
+  return 'אפשר לחכות'
+}
+
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: "אני כאן כדי ללוות אותך במסע ההתפתחות שלך.",
-      isUser: false,
-      timestamp: new Date()
-    },
-    {
-      id: '2', 
-      content: "על מה היית רוצה להרהר היום?",
-      isUser: false,
-      timestamp: new Date()
-    }
-  ])
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
+  const [currentText, setCurrentText] = useState("")
+  const [completedTexts, setCompletedTexts] = useState<string[]>([])
+  const [isTyping, setIsTyping] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [recordingStartTime, setRecordingStartTime] = useState<number>(0)
   
   const { isRecording, transcript, startRecording, stopRecording, error } = useVoiceRecording()
+
+  // Typewriter effect
+  useEffect(() => {
+    if (currentMessageIndex >= WELCOME_MESSAGES.length) return
+
+    const text = WELCOME_MESSAGES[currentMessageIndex]
+    let charIndex = 0
+    setCurrentText("")
+    setIsTyping(true)
+
+    const typeTimer = setInterval(() => {
+      if (charIndex < text.length) {
+        setCurrentText(text.slice(0, charIndex + 1))
+        charIndex++
+      } else {
+        clearInterval(typeTimer)
+        setIsTyping(false)
+        
+        // Add completed text to array
+        setCompletedTexts(prev => [...prev, text])
+        
+        // Move to next message after delay
+        setTimeout(() => {
+          setCurrentMessageIndex(prev => prev + 1)
+        }, 500)
+      }
+    }, 40)
+
+    return () => clearInterval(typeTimer)
+  }, [currentMessageIndex])
 
   const handleVoiceButtonClick = async () => {
     if (isRecording) {
       console.log('Stopping recording...')
       const finalTranscript = await stopRecording()
+      setRecordingStartTime(0)
       
       console.log('Final transcript received:', finalTranscript)
       
@@ -56,6 +165,7 @@ export default function Home() {
       }
     } else {
       console.log('Starting recording...')
+      setRecordingStartTime(Date.now())
       await startRecording()
     }
   }
@@ -101,6 +211,22 @@ export default function Home() {
         
         console.log('Adding AI message to chat:', aiMessage)
         setMessages(prev => [...prev, aiMessage])
+
+        // Check if AI response contains a task and save to journal
+        if (detectTask(data.reply)) {
+          const task: JournalTask = {
+            id: Date.now().toString(),
+            content: data.reply,
+            urgency: determineUrgency(data.reply),
+            date: new Date(),
+            completed: false
+          }
+          
+          // Save to localStorage for now (will be replaced with proper storage later)
+          const existingTasks = JSON.parse(localStorage.getItem('journalTasks') || '[]')
+          localStorage.setItem('journalTasks', JSON.stringify([...existingTasks, task]))
+          console.log('Task saved to journal:', task)
+        }
       } else {
         console.error('API Error:', response.status, data)
         throw new Error(data.error || `API Error: ${response.status}`)
@@ -124,100 +250,176 @@ export default function Home() {
   }
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
+    <div dir="rtl" className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
       {/* Status Bar */}
       <div className="flex justify-between items-center px-4 py-2">
-        <div className="text-sm font-medium">9:41</div>
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 rounded-full border border-[#FAFAFA] flex items-center justify-center">
             <div className="w-2 h-2 bg-[#C8E8D5] rounded-full"></div>
           </div>
           <div className="text-xs">85%</div>
         </div>
+        <div className="text-sm font-medium">9:41</div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex flex-col h-[calc(100%-8rem)] px-6 pt-6 pb-4">
-        {/* Welcome Message */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-medium text-[#E0D6F0] mb-2">איך אתה באמת מרגיש היום?</h1>
-          <h2 className="text-xl font-light text-[#FAFAFA]">אני כאן כדי להקשיב ולהדריך אותך — בקצב שלך.</h2>
+        {/* Welcome Messages */}
+        <div className="mb-8 text-right">
+          {/* First message */}
+          <div className="mb-2 min-h-[2.5em]">
+            {(completedTexts[0] || (currentMessageIndex === 0 && currentText)) && (
+              <h1 className="text-3xl font-medium text-[#E0D6F0]">
+                {completedTexts[0] || currentText}
+              </h1>
+            )}
+          </div>
+          
+          {/* Second message */}
+          <div className="min-h-[3em]">
+            {(completedTexts[1] || (currentMessageIndex === 1 && currentText)) && (
+              <h2 className="text-xl font-light text-[#FAFAFA]">
+                {completedTexts[1] || currentText}
+              </h2>
+            )}
+          </div>
         </div>
 
         {/* Message Area */}
         <div className="flex-1 overflow-y-auto rounded-xl bg-[#2F2F3A]/30 backdrop-blur-sm p-5 mb-6">
           <div className="flex flex-col gap-4">
+            {/* Third message */}
+            {(completedTexts[2] || (currentMessageIndex === 2 && currentText)) && (
+              <div className="self-start max-w-[80%] bg-[#5A5D7C]/95 text-[#FAFAFA] rounded-2xl rounded-tr-sm p-4 text-right">
+                {completedTexts[2] || currentText}
+              </div>
+            )}
+            
+            {/* Fourth message */}
+            {(completedTexts[3] || (currentMessageIndex === 3 && currentText)) && (
+              <div className="self-start max-w-[80%] bg-[#5A5D7C]/95 text-[#FAFAFA] rounded-2xl rounded-tr-sm p-4 text-right">
+                {completedTexts[3] || currentText}
+              </div>
+            )}
+
+            {/* Chat Messages */}
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={cn(
                   "max-w-[80%] rounded-2xl p-4",
                   message.isUser
-                    ? "self-end bg-[#C8E8D5]/90 text-[#2F2F3A] rounded-tr-sm"
-                    : "self-start bg-[#5A5D7C]/95 text-[#FAFAFA] rounded-tl-sm"
+                    ? "self-start bg-[#C8E8D5]/90 text-[#2F2F3A] rounded-tr-sm"
+                    : "self-start bg-[#5A5D7C]/95 text-[#FAFAFA] rounded-tr-sm"
                 )}
+                style={{ 
+                  direction: 'rtl', 
+                  textAlign: 'right',
+                  unicodeBidi: 'embed'
+                }}
+                dir="rtl"
               >
-                {message.content}
+                <div 
+                  style={{ 
+                    direction: 'rtl', 
+                    unicodeBidi: 'bidi-override',
+                    display: 'block',
+                    textAlign: 'right',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                  dir="rtl"
+                >
+                  {message.content}
+                </div>
               </div>
             ))}
             
             {/* Show current transcript while recording */}
             {isRecording && transcript && (
-              <div className="self-end max-w-[80%] bg-[#E0D6F0]/70 text-[#2F2F3A] rounded-2xl rounded-tr-sm p-4 opacity-75">
-                {transcript}
+              <div 
+                className="self-start max-w-[80%] bg-[#E0D6F0]/70 text-[#2F2F3A] rounded-2xl rounded-tr-sm p-4 opacity-75"
+                style={{ 
+                  direction: 'rtl', 
+                  textAlign: 'right',
+                  unicodeBidi: 'embed',
+                  writingMode: 'horizontal-tb',
+                  textOrientation: 'mixed'
+                }}
+                dir="rtl"
+              >
+                <span style={{ direction: 'rtl', unicodeBidi: 'embed' }}>
+                  {transcript}
+                </span>
               </div>
             )}
             
             {/* Processing indicator */}
             {isProcessing && (
-            <div className="self-start max-w-[80%] bg-[#5A5D7C]/95 rounded-2xl rounded-tl-sm p-4 text-[#FAFAFA]">
-                <div className="flex items-center gap-2">
+              <div className="self-start max-w-[80%] bg-[#5A5D7C]/95 rounded-2xl rounded-tr-sm p-4 text-[#FAFAFA]">
+                <div className="flex items-center gap-2 justify-end">
                   <div className="w-2 h-2 bg-[#E0D6F0] rounded-full animate-pulse"></div>
                   <div className="w-2 h-2 bg-[#E0D6F0] rounded-full animate-pulse" style={{ animationDelay: "0.2s" }}></div>
                   <div className="w-2 h-2 bg-[#E0D6F0] rounded-full animate-pulse" style={{ animationDelay: "0.4s" }}></div>
                 </div>
-            </div>
+              </div>
             )}
             
             {/* Error display */}
             {error && (
-              <div className="self-center max-w-[80%] bg-red-500/20 text-red-200 rounded-2xl p-4 text-sm">
+              <div 
+                className="self-center max-w-[80%] bg-red-500/20 text-red-200 rounded-2xl p-4 text-sm"
+                style={{ 
+                  direction: 'rtl', 
+                  textAlign: 'right',
+                  unicodeBidi: 'embed'
+                }}
+              >
                 {error}
-            </div>
+              </div>
             )}
           </div>
         </div>
 
         {/* Voice Input Area */}
-        <div className="relative flex justify-center items-center mb-10">
-          {/* Multiple layered auras for depth - more subtle and clean */}
-          <div className="absolute w-40 h-40 rounded-full bg-gradient-to-br from-[#E0D6F0]/6 to-[#C5DCF0]/6 animate-pulse"></div>
-          <div
-            className="absolute w-36 h-36 rounded-full bg-gradient-to-br from-[#E0D6F0]/8 to-[#C5DCF0]/8 animate-pulse"
-            style={{ animationDelay: "0.1s" }}
-          ></div>
-          <div
-            className="absolute w-32 h-32 rounded-full bg-gradient-to-br from-[#C5DCF0]/10 to-[#FADDE3]/10 animate-pulse"
-            style={{ animationDelay: "0.2s" }}
-          ></div>
+        <div className="relative flex flex-col items-center mb-10" dir="ltr">
+          {/* Recording feedback - waveform and timer */}
+          {isRecording && recordingStartTime > 0 && (
+            <div className="flex items-center gap-4 mb-4 bg-[#2F2F3A]/50 backdrop-blur-sm rounded-full px-6 py-3">
+              <WaveformAnimation />
+              <RecordingTimer startTime={recordingStartTime} />
+            </div>
+          )}
 
-          {/* Main button with subtle shadow - cleaner look */}
+          <div className="relative flex justify-center items-center">
+            {/* Multiple layered auras for depth - more subtle and clean */}
+            <div className="absolute w-40 h-40 rounded-full bg-gradient-to-br from-[#E0D6F0]/6 to-[#C5DCF0]/6 animate-pulse"></div>
+            <div
+              className="absolute w-36 h-36 rounded-full bg-gradient-to-br from-[#E0D6F0]/8 to-[#C5DCF0]/8 animate-pulse"
+              style={{ animationDelay: "0.1s" }}
+            ></div>
+            <div
+              className="absolute w-32 h-32 rounded-full bg-gradient-to-br from-[#C5DCF0]/10 to-[#FADDE3]/10 animate-pulse"
+              style={{ animationDelay: "0.2s" }}
+            ></div>
+
+            {/* Main button with subtle shadow - cleaner look */}
           <button 
             onClick={handleVoiceButtonClick}
             disabled={isProcessing}
             className={cn(
               "w-24 h-24 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(224,214,240,0.3)] relative z-10 transition-all duration-200",
               isRecording 
-                ? "bg-gradient-to-br from-red-400 via-red-500 to-red-600 scale-110" 
-                : "bg-gradient-to-br from-[#C5DCF0] via-[#E0D6F0] to-[#FADDE3]",
+                ? "bg-gradient-to-br from-[#4A5D8C] via-[#5A5D7C] to-[#3A4D6C] scale-110" 
+                : "bg-gradient-to-br from-[#C5DCF0] via-[#E0D6F0] to-[#FADDE3] hover:from-[#B5CCE0] hover:via-[#D0C6E0] hover:to-[#EACDD3] hover:scale-105",
               isProcessing && "opacity-50 cursor-not-allowed"
             )}
           >
             <div className={cn(
               "w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200",
               isRecording 
-                ? "bg-gradient-to-br from-red-500 via-red-600 to-red-700" 
-                : "bg-gradient-to-br from-[#C5DCF0] via-[#FADDE3] to-[#C8E8D5]"
+                ? "bg-gradient-to-br from-[#5A5D7C] via-[#4A5D8C] to-[#3A4D6C]" 
+                : "bg-gradient-to-br from-[#C5DCF0] via-[#FADDE3] to-[#C8E8D5] hover:from-[#B5CCE0] hover:via-[#EACDD3] hover:to-[#B8D8C5]"
             )}>
               <MicIcon size={32} className={cn(
                 "transition-colors duration-200",
@@ -226,10 +428,11 @@ export default function Home() {
             </div>
           </button>
 
-          <div className="absolute -bottom-10 text-center">
-            <p className="text-[#FAFAFA] text-sm font-medium tracking-wide">
-              {isRecording ? "Recording... Click to stop" : isProcessing ? "Processing..." : "Click to speak"}
-            </p>
+                      <div className="absolute -bottom-10 text-center">
+              <p className="text-[#FAFAFA] text-sm font-medium tracking-wide">
+                {isRecording ? "Recording... Click to stop" : isProcessing ? "Processing..." : "Click to speak"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -247,50 +450,29 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Bottom Tab Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#2F2F3A]/80 backdrop-blur-md">
-        <div className="flex justify-around items-center h-full px-4">
-          {[
-            { icon: BrainIcon, label: "Growth", active: false, path: "/growth" },
-            { icon: BookOpenIcon, label: "Journal", active: false, path: "/journal" },
-            { icon: MicIcon, label: "Voice", active: true, path: "/" },
-            { icon: BarChart3Icon, label: "Progress", active: false, path: "/progress" },
-            { icon: UserIcon, label: "Profile", active: false, path: "/profile" },
-          ].map((tab, index) => {
-            // Make the Voice tab special
-            if (tab.label === "Voice") {
-              return (
-                <Link
-                  key={index}
-                  href={tab.path}
-                  className={cn(
-                    "flex flex-col items-center justify-center -mt-6",
-                    "w-16 h-16 rounded-full bg-gradient-to-br from-[#C5DCF0] via-[#E0D6F0] to-[#FADDE3]",
-                    "shadow-[0_0_20px_rgba(224,214,240,0.6)]",
-                  )}
-                >
-                  <tab.icon size={24} className="text-[#2F2F3A]" />
-                  <span className="sr-only">Voice</span>
-                </Link>
-              )
-            }
-
-            return (
-              <Link
-                key={index}
-                href={tab.path}
-                className={cn(
-                  "flex flex-col items-center justify-center w-16 h-16 transition-all duration-200",
-                  tab.active ? "text-[#E0D6F0]" : "text-[#FAFAFA]/50 hover:text-[#FAFAFA]/80",
-                )}
-              >
-                <tab.icon size={22} className={cn("mb-1", tab.active && "drop-shadow-glow")} />
-                <span className={cn("text-xs font-medium", tab.active ? "opacity-100" : "opacity-70")}>
-                  {tab.label}
-                </span>
-              </Link>
-            )
-          })}
+      {/* Bottom Tab Bar - Updated Order: Journal, Growth, Chat, Progress, Profile */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
+        <div className="flex justify-around items-center py-3 px-6">
+          <Link href="/journal" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BookOpenIcon size={24} />
+            <span className="text-xs font-medium">Journal</span>
+          </Link>
+          <Link href="/growth" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BrainIcon size={24} />
+            <span className="text-xs font-medium">Growth</span>
+          </Link>
+          <Link href="/" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
+            <MicIcon size={24} />
+            <span className="text-xs font-medium">Chat</span>
+          </Link>
+          <Link href="/progress" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BarChart3Icon size={24} />
+            <span className="text-xs font-medium">Progress</span>
+          </Link>
+          <Link href="/profile" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <UserIcon size={24} />
+            <span className="text-xs font-medium">Profile</span>
+          </Link>
         </div>
       </div>
     </div>

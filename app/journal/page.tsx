@@ -7,6 +7,7 @@ import Link from "next/link"
 
 interface JournalTask {
   id: string
+  title: string
   content: string
   urgency: 'מאוד חשוב' | 'חשוב' | 'אפשר לחכות' | 'מתי שתרצה'
   date: Date
@@ -27,11 +28,18 @@ export default function Journal() {
     // Load tasks from localStorage
     const savedTasks = localStorage.getItem('journalTasks')
     if (savedTasks) {
-      const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
-        ...task,
-        date: new Date(task.date)
-      }))
-      setTasks(parsedTasks)
+      try {
+        const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
+          ...task,
+          title: task.title || 'משימה', // Backward compatibility for tasks without titles
+          date: new Date(task.date)
+        }))
+        setTasks(parsedTasks)
+        console.log('Loaded tasks from localStorage:', parsedTasks)
+      } catch (error) {
+        console.error('Error loading tasks:', error)
+        setTasks([])
+      }
     }
   }, [])
 
@@ -140,9 +148,18 @@ export default function Journal() {
                               </span>
                             </div>
                             
+                            {task.title && (
+                              <h3 className={cn(
+                                "text-[#E0D6F0] font-medium mb-2 text-lg",
+                                task.completed && "line-through text-[#E0D6F0]/50"
+                              )}>
+                                {task.title}
+                              </h3>
+                            )}
+                            
                             <p className={cn(
-                              "text-[#FAFAFA] leading-relaxed",
-                              task.completed && "line-through text-[#FAFAFA]/50"
+                              "text-[#FAFAFA]/80 leading-relaxed text-sm",
+                              task.completed && "line-through text-[#FAFAFA]/30"
                             )}>
                               {task.content}
                             </p>

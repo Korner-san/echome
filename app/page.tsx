@@ -15,6 +15,7 @@ interface Message {
 
 interface JournalTask {
   id: string
+  title: string
   content: string
   urgency: 'מאוד חשוב' | 'חשוב' | 'אפשר לחכות' | 'מתי שתרצה'
   date: Date
@@ -75,15 +76,7 @@ const RecordingTimer = ({ startTime }: { startTime: number }) => {
   )
 }
 
-// Task detection function
-const detectTask = (text: string): boolean => {
-  const taskKeywords = [
-    'משימה', 'נסה', 'הצעתי לך', 'ממליץ', 'כדאי לך', 'תעשה', 'תנסה',
-    'תכין', 'תתחיל', 'תמשיך', 'תזכור', 'תכתוב', 'תקרא', 'תלמד'
-  ]
-  
-  return taskKeywords.some(keyword => text.includes(keyword))
-}
+
 
 // Determine urgency based on content
 const determineUrgency = (text: string): JournalTask['urgency'] => {
@@ -109,6 +102,35 @@ export default function Home() {
   const [recordingStartTime, setRecordingStartTime] = useState<number>(0)
   
   const { isRecording, transcript, startRecording, stopRecording, error } = useVoiceRecording()
+
+  // Load messages from localStorage on component mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('chatMessages')
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages).map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }))
+        setMessages(parsedMessages)
+      } catch (error) {
+        console.error('Error loading saved messages:', error)
+      }
+    }
+  }, [])
+
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('chatMessages', JSON.stringify(messages))
+    }
+  }, [messages])
+
+  // Clear chat function
+  const clearChat = () => {
+    setMessages([])
+    localStorage.removeItem('chatMessages')
+  }
 
   // Typewriter effect
   useEffect(() => {
@@ -213,10 +235,11 @@ export default function Home() {
         setMessages(prev => [...prev, aiMessage])
 
         // Check if AI response contains a task and save to journal
-        if (detectTask(data.reply)) {
+        if (data.hasTask && data.taskTitle) {
           const task: JournalTask = {
             id: Date.now().toString(),
-            content: data.reply,
+            title: data.taskTitle,
+            content: data.reply.length > 150 ? data.reply.substring(0, 150) + '...' : data.reply,
             urgency: determineUrgency(data.reply),
             date: new Date(),
             completed: false
@@ -260,6 +283,14 @@ export default function Home() {
           <div className="text-xs">85%</div>
         </div>
         <div className="text-sm font-medium">9:41</div>
+        {messages.length > 0 && (
+          <button
+            onClick={clearChat}
+            className="text-xs text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors px-2 py-1 rounded"
+          >
+            נקה שיחה
+          </button>
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -322,13 +353,13 @@ export default function Home() {
                 <div 
                   style={{ 
                     direction: 'rtl', 
-                    unicodeBidi: 'bidi-override',
+                    unicodeBidi: 'plaintext',
                     display: 'block',
                     textAlign: 'right',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word'
                   }}
-                  dir="rtl"
+                  dir="auto"
                 >
                   {message.content}
                 </div>

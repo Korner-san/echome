@@ -56,32 +56,52 @@ export const useVoiceRecording = (): UseVoiceRecordingReturn => {
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
-      // Set up speech recognition
+      // Set up speech recognition with optimized Hebrew settings
       const recognition = new SpeechRecognition()
       recognition.continuous = true
       recognition.interimResults = true
       recognition.lang = 'he-IL' // Hebrew language support
+      recognition.maxAlternatives = 3 // Get multiple alternatives for better accuracy
+      recognition.serviceURI = '' // Use default service
+      
+      // Additional Hebrew language hints
+      if (recognition.grammars && recognition.grammars.addFromString) {
+        try {
+          recognition.grammars.addFromString('#JSGF V1.0; grammar hebrew; public <hebrew> = אני | אתה | היום | מחר | רוצה | צריך | משימה | ריצה | הליכה | עבודה | בית | טלפון | תיקון;', 1)
+        } catch (e) {
+          console.log('Grammar hints not supported, continuing without them')
+        }
+      }
       
       recognition.onresult = (event: any) => {
         console.log('Speech recognition result event:', event)
         let finalTranscript = ''
+        let interimTranscript = ''
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript
-          console.log('Transcript part:', transcript, 'isFinal:', event.results[i].isFinal)
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript
+          const result = event.results[i]
+          const transcript = result[0].transcript.trim()
+          
+          console.log('Transcript part:', transcript, 'isFinal:', result.isFinal, 'confidence:', result[0].confidence)
+          
+          if (result.isFinal) {
+            // Clean up Hebrew text - remove extra spaces and normalize
+            const cleanTranscript = transcript.replace(/\s+/g, ' ').trim()
+            if (cleanTranscript) {
+              finalTranscript += cleanTranscript + ' '
+            }
+          } else {
+            interimTranscript += transcript + ' '
           }
         }
         
         if (finalTranscript) {
           console.log('Adding final transcript:', finalTranscript)
           currentTranscriptRef.current += finalTranscript
-          setTranscript(prev => {
-            const newTranscript = prev + finalTranscript
-            console.log('Updated transcript:', newTranscript)
-            return newTranscript
-          })
+          setTranscript(currentTranscriptRef.current + interimTranscript)
+        } else if (interimTranscript) {
+          // Show interim results for better user feedback
+          setTranscript(currentTranscriptRef.current + interimTranscript)
         }
       }
       

@@ -104,7 +104,19 @@ TASK:
 💡 סיסמת הפעלה פנימית:
 "מה יעזור לו עכשיו – בצורה הכי פשוטה, אישית, אמפתית ומדויקת שיש?"
 
-CRITICAL: You MUST respond in fluent, natural Hebrew. Use proper Hebrew grammar, syntax, and expressions. Be culturally sensitive and use appropriate Hebrew tone and style. Always ensure your Hebrew responses are clear, natural, and emotionally resonant.`
+CRITICAL: You MUST respond in fluent, natural Hebrew. Use proper Hebrew grammar, syntax, and expressions. Be culturally sensitive and use appropriate Hebrew tone and style. Always ensure your Hebrew responses are clear, natural, and emotionally resonant.
+
+IMPORTANT: You MUST respond in JSON format with the following structure:
+{
+  "reply": "your Hebrew response here",
+  "hasTask": true/false,
+  "taskTitle": "short Hebrew task title (2-4 words)" or null
+}
+
+When the user mentions tasks, reminders, or asks you to help them remember something, set hasTask to true and provide a concise Hebrew task title. Examples:
+- User says "remind me to run 5km tomorrow" → hasTask: true, taskTitle: "ריצה 5 ק״מ"
+- User says "I need to fix my phone" → hasTask: true, taskTitle: "תיקון טלפון"
+- User just shares emotions → hasTask: false, taskTitle: null`
         },
         {
           role: "user",
@@ -119,10 +131,69 @@ CRITICAL: You MUST respond in fluent, natural Hebrew. Use proper Hebrew grammar,
     })
 
     console.log('OpenAI API call successful')
-    const reply = completion.choices[0]?.message?.content || "אני כאן כדי להקשיב. אפשר לספר לי קצת יותר על מה שמעסיק אותך?"
-    console.log('Reply generated:', reply.substring(0, 50) + '...')
+    const rawResponse = completion.choices[0]?.message?.content || '{"reply": "אני כאן כדי להקשיב. אפשר לספר לי קצת יותר על מה שמעסיק אותך?", "hasTask": false, "taskTitle": null}'
+    console.log('Raw response received:', rawResponse)
 
-    return NextResponse.json({ reply })
+    try {
+      // Clean the response - remove code block markers if present
+      let cleanResponse = rawResponse.trim()
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+      } else if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '')
+      }
+      
+      // Try to parse as JSON
+      const parsedResponse = JSON.parse(cleanResponse)
+      console.log('Successfully parsed JSON response')
+      console.log('Has task:', parsedResponse.hasTask)
+      console.log('Task title:', parsedResponse.taskTitle)
+      
+      return NextResponse.json({
+        reply: parsedResponse.reply,
+        hasTask: parsedResponse.hasTask || false,
+        taskTitle: parsedResponse.taskTitle || null
+      })
+    } catch (parseError) {
+      // Fallback for non-JSON responses - extract clean reply
+      console.log('Failed to parse JSON, using fallback')
+      let fallbackReply = rawResponse
+      let hasTask = false
+      let taskTitle = null
+      
+      // If it looks like malformed JSON, try to extract the reply, hasTask, and taskTitle
+      if (rawResponse.includes('"reply":')) {
+        const replyMatch = rawResponse.match(/"reply":\s*"([^"]*)"/)
+        if (replyMatch) {
+          fallbackReply = replyMatch[1]
+        }
+        
+        // Try to extract hasTask
+        const hasTaskMatch = rawResponse.match(/"hasTask":\s*(true|false)/)
+        if (hasTaskMatch) {
+          hasTask = hasTaskMatch[1] === 'true'
+        }
+        
+        // Try to extract taskTitle
+        const taskTitleMatch = rawResponse.match(/"taskTitle":\s*"([^"]*)"/)
+        if (taskTitleMatch) {
+          taskTitle = taskTitleMatch[1]
+        }
+      }
+      
+      // Clean up any escape characters in the reply
+      fallbackReply = fallbackReply.replace(/\\"/g, '"').replace(/\\n/g, '\n')
+      
+      console.log('Fallback reply:', fallbackReply.substring(0, 50) + '...')
+      console.log('Fallback hasTask:', hasTask)
+      console.log('Fallback taskTitle:', taskTitle)
+      
+      return NextResponse.json({
+        reply: fallbackReply,
+        hasTask: hasTask,
+        taskTitle: taskTitle
+      })
+    }
   } catch (error) {
     console.error('=== OpenAI API error ===')
     console.error('Error type:', typeof error)

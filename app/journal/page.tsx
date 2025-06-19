@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BookOpenIcon, CheckIcon, ClockIcon, AlertTriangleIcon, CalendarIcon, MicIcon, BrainIcon, BarChart3Icon, UserIcon } from "lucide-react"
+import { BookOpenIcon, CheckIcon, ClockIcon, AlertTriangleIcon, CalendarIcon, MicIcon, TrophyIcon, BarChart3Icon, UserIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -23,6 +23,8 @@ const urgencyConfig = {
 
 export default function Journal() {
   const [tasks, setTasks] = useState<JournalTask[]>([])
+  const [celebratingTaskId, setCelebratingTaskId] = useState<string | null>(null)
+  const [celebrationStage, setCelebrationStage] = useState<'gif' | 'static' | null>(null)
 
   useEffect(() => {
     // Load tasks from localStorage
@@ -49,6 +51,27 @@ export default function Journal() {
     )
     setTasks(updatedTasks)
     localStorage.setItem('journalTasks', JSON.stringify(updatedTasks))
+    
+    // Show two-stage celebration if task is being completed
+    const task = tasks.find(t => t.id === taskId)
+    if (task && !task.completed) {
+      console.log('Starting celebration for task:', task.title)
+      setCelebratingTaskId(taskId)
+      setCelebrationStage('gif')
+      
+      // Stage 1: Show gif for ~1 second (let gif play)
+      setTimeout(() => {
+        console.log('Switching to static stage')
+        setCelebrationStage('static')
+      }, 1000)
+      
+      // Stage 2: Show static image for 2 seconds, then hide everything
+      setTimeout(() => {
+        console.log('Hiding celebration')
+        setCelebratingTaskId(null)
+        setCelebrationStage(null)
+      }, 3000) // Total: 1s gif + 2s static = 3s total
+    }
   }
 
   const groupTasksByDate = (tasks: JournalTask[]) => {
@@ -120,7 +143,7 @@ export default function Journal() {
                       <div
                         key={task.id}
                         className={cn(
-                          "bg-[#2F2F3A]/50 backdrop-blur-sm rounded-xl p-4 border border-[#5A5D7C]/30 transition-all duration-200",
+                          "bg-[#2F2F3A]/50 backdrop-blur-sm rounded-xl p-4 border border-[#5A5D7C]/30 transition-all duration-200 relative",
                           task.completed && "opacity-60"
                         )}
                       >
@@ -139,6 +162,34 @@ export default function Journal() {
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
+                              {/* Two-Stage Celebration */}
+                              {celebratingTaskId === task.id && (
+                                <div className="flex-shrink-0">
+                                  {celebrationStage === 'gif' && (
+                                    <img 
+                                      src="/celebration.gif" 
+                                      alt="הצלחה!" 
+                                      className="w-8 h-8 object-contain"
+                                    />
+                                  )}
+                                  {celebrationStage === 'static' && (
+                                    <img 
+                                      src="/static TAK.png" 
+                                      alt="הצלחה!" 
+                                      className="w-8 h-8 object-contain"
+                                      onLoad={() => console.log('Static image loaded successfully')}
+                                      onError={(e) => {
+                                        console.error('Failed to load static image:', e);
+                                        // Fallback: try without space
+                                        const img = e.target as HTMLImageElement;
+                                        if (img.src.includes('static TAK.png')) {
+                                          img.src = '/static_tak.png';
+                                        }
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              )}
                               <span className={cn(
                                 "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border",
                                 urgencyStyle.color
@@ -175,31 +226,31 @@ export default function Journal() {
         )}
       </div>
 
-             {/* Bottom Tab Bar - Updated Order: Journal, Growth, Chat, Progress, Profile */}
-       <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
-         <div className="flex justify-around items-center py-3 px-6">
-           <Link href="/journal" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
-             <BookOpenIcon size={24} />
-             <span className="text-xs font-medium">Journal</span>
-           </Link>
-           <Link href="/growth" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-             <BrainIcon size={24} />
-             <span className="text-xs font-medium">Growth</span>
-           </Link>
-           <Link href="/" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-             <MicIcon size={24} />
-             <span className="text-xs font-medium">Chat</span>
-           </Link>
-           <Link href="/progress" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-             <BarChart3Icon size={24} />
-             <span className="text-xs font-medium">Progress</span>
-           </Link>
-           <Link href="/profile" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-             <UserIcon size={24} />
-             <span className="text-xs font-medium">Profile</span>
-           </Link>
-         </div>
-       </div>
+      {/* Bottom Tab Bar - עברית מלאה */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
+        <div className="flex justify-around items-center py-3 px-6">
+          <Link href="/journal" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
+            <BookOpenIcon size={24} />
+            <span className="text-xs font-medium">יומן</span>
+          </Link>
+          <Link href="/growth" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <TrophyIcon size={24} />
+            <span className="text-xs font-medium">הישגים</span>
+          </Link>
+          <Link href="/" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <MicIcon size={24} />
+            <span className="text-xs font-medium">שיחה</span>
+          </Link>
+          <Link href="/progress" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <BarChart3Icon size={24} />
+            <span className="text-xs font-medium">התקדמות</span>
+          </Link>
+          <Link href="/profile" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
+            <UserIcon size={24} />
+            <span className="text-xs font-medium">פרופיל</span>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }

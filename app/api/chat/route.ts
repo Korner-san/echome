@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
 ### 🟢 מצב 1: תרגום פקודה → משימה
 כאשר המשתמש אומר פקודת משימה ברורה כמו:
 - "תזכיר לי..." / "אני צריך..." / "יש לי פגישה..." / "אל תשכח ש..."
+- "אני רוצה ליצור משימה..." / "רוצה לרשום..." / "בוא נרשום..."
+- "תעזור לי ליצור..." / "תכין לי משימה..." / "תוסיף משימה..."
 
 התגובה שלך צריכה להיות:
 משימה: "[תוכן]" | תאריך: [אם נאמר] | שעה: [אם נאמר] | תיוג: [אם מתאים]
@@ -129,6 +131,10 @@ export async function POST(request: NextRequest) {
 ✅ משימה: "סידור טפסים" | טווח זמן: השבוע  
 → לאחר אישור: *הכנס ל־Journal*
 
+🎙 "אני רוצה ליצור משימה לעשות טיפוס הרים מחר ב-7"  
+✅ משימה: "טיפוס הרים" | תאריך: מחר | שעה: 07:00  
+→ לאחר אישור: *הכנס ל־Journal*
+
 ---
 
 ### 🧩 תיוגים אפשריים:
@@ -164,6 +170,8 @@ IMPORTANT: You MUST respond in JSON format with the following structure:
 When the user mentions tasks, reminders, or asks you to help them remember something, set hasTask to true and provide a concise Hebrew task title. Examples:
 - User says "remind me to run 5km tomorrow" → hasTask: true, taskTitle: "ריצה 5 ק״מ"
 - User says "I need to fix my phone" → hasTask: true, taskTitle: "תיקון טלפון"
+- User says "אני רוצה ליצור משימה לעשות טיפוס הרים מחר ב-7" → hasTask: true, taskTitle: "טיפוס הרים"
+- User says "תעזור לי ליצור משימה לקנות חלב" → hasTask: true, taskTitle: "קניית חלב"
 - User just shares emotions → hasTask: false, taskTitle: null`
         },
         {

@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, BrainIcon, MicIcon, BarChart3Icon, UserIcon, BookOpenIcon } from "lucide-react"
+import { ArrowLeftIcon, TrophyIcon, MicIcon, BarChart3Icon, UserIcon, BookOpenIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -21,7 +21,7 @@ export default function ProgressPage() {
         <Link href="/" className="mr-4">
           <ArrowLeftIcon size={24} className="text-[#FAFAFA]" />
         </Link>
-        <h1 className="text-2xl font-medium text-[#E0D6F0]">Your Growth Journey</h1>
+        <h1 className="text-2xl font-medium text-[#E0D6F0]">מסע ההתפתחות שלך</h1>
       </div>
 
       {/* Main Content Area */}
@@ -29,9 +29,9 @@ export default function ProgressPage() {
         {/* Weekly Overview */}
         <div>
           <div className="flex justify-between items-center mb-5">
-            <h2 className="text-xl font-medium text-[#FAFAFA]">Weekly Overview</h2>
+            <h2 className="text-xl font-medium text-[#FAFAFA]">סקירה שבועית</h2>
             <div className="text-xs font-medium px-2.5 py-1 bg-[#C8E8D5]/30 rounded-full text-[#C8E8D5]">
-              +15% from last week
+              +15% מהשבוע שעבר
             </div>
           </div>
 
@@ -40,7 +40,7 @@ export default function ProgressPage() {
             <div className="absolute bottom-4 left-4 right-4 h-32">
               {/* Simplified chart visualization */}
               <div className="relative h-full w-full flex items-end justify-between">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, index) => {
+                {["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"].map((day, index) => {
                   // Generate random heights for the bars
                   const heights = [45, 65, 40, 80, 60, 90, 75]
                   return (
@@ -60,39 +60,39 @@ export default function ProgressPage() {
 
         {/* Growth Insights */}
         <div>
-          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">Growth Insights</h2>
+          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">תובנות התפתחות</h2>
           <div className="grid grid-cols-2 gap-5">
             <div className="bg-[#2F2F3A]/70 rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-[#FAFAFA]">Focus Time</h3>
+                <h3 className="text-sm font-medium text-[#FAFAFA]">זמן מיקוד</h3>
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C8E8D5] to-[#C5DCF0] flex items-center justify-center shadow-sm">
-                  <BrainIcon size={16} className="text-[#2F2F3A]" />
+                  <BarChart3Icon size={16} className="text-[#2F2F3A]" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-[#C8E8D5]">2h 15m</p>
-              <p className="text-xs text-[#FAFAFA]/70 mt-1">This week</p>
+              <p className="text-2xl font-bold text-[#C8E8D5]">2 שעות 15 דק'</p>
+              <p className="text-xs text-[#FAFAFA]/70 mt-1">השבוע</p>
             </div>
             <div className="bg-[#2F2F3A]/70 rounded-xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-[#FAFAFA]">Sessions</h3>
+                <h3 className="text-sm font-medium text-[#FAFAFA]">שיחות</h3>
                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FADDE3] to-[#E0D6F0] flex items-center justify-center shadow-sm">
                   <MicIcon size={16} className="text-[#2F2F3A]" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-[#FADDE3]">12</p>
-              <p className="text-xs text-[#FAFAFA]/70 mt-1">This week</p>
+              <p className="text-xs text-[#FAFAFA]/70 mt-1">השבוע</p>
             </div>
           </div>
         </div>
 
         {/* Growth Areas */}
         <div>
-          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">Growth Areas</h2>
+          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">תחומי התפתחות</h2>
           <div className="space-y-5 bg-[#2F2F3A]/70 rounded-xl p-5 shadow-sm">
             {[
-              { area: "Emotional Intelligence", progress: 75, color: "from-[#E0D6F0] to-[#FADDE3]" },
-              { area: "Mindfulness", progress: 60, color: "from-[#C5DCF0] to-[#C8E8D5]" },
-              { area: "Stress Management", progress: 45, color: "from-[#C8E8D5] to-[#E0D6F0]" },
+              { area: "אינטליגנציה רגשית", progress: 75, color: "from-[#E0D6F0] to-[#FADDE3]" },
+              { area: "מיינדפולנס", progress: 60, color: "from-[#C5DCF0] to-[#C8E8D5]" },
+              { area: "ניהול לחץ", progress: 45, color: "from-[#C8E8D5] to-[#E0D6F0]" },
             ].map((item, index) => (
               <div key={index} className="bg-[#5A5D7C]/40 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-3">
@@ -116,28 +116,28 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* Bottom Tab Bar - Updated Order: Journal, Growth, Chat, Progress, Profile */}
+      {/* Bottom Tab Bar - עברית מלאה */}
       <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
         <div className="flex justify-around items-center py-3 px-6">
           <Link href="/journal" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <BookOpenIcon size={24} />
-            <span className="text-xs font-medium">Journal</span>
+            <span className="text-xs font-medium">יומן</span>
           </Link>
           <Link href="/growth" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-            <BrainIcon size={24} />
-            <span className="text-xs font-medium">Growth</span>
+            <TrophyIcon size={24} />
+            <span className="text-xs font-medium">הישגים</span>
           </Link>
           <Link href="/" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <MicIcon size={24} />
-            <span className="text-xs font-medium">Chat</span>
+            <span className="text-xs font-medium">שיחה</span>
           </Link>
           <Link href="/progress" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
             <BarChart3Icon size={24} />
-            <span className="text-xs font-medium">Progress</span>
+            <span className="text-xs font-medium">התקדמות</span>
           </Link>
           <Link href="/profile" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <UserIcon size={24} />
-            <span className="text-xs font-medium">Profile</span>
+            <span className="text-xs font-medium">פרופיל</span>
           </Link>
         </div>
       </div>

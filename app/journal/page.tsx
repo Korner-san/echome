@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { BookOpenIcon, CheckIcon, ClockIcon, AlertTriangleIcon, CalendarIcon, MicIcon, TrophyIcon, BarChart3Icon, UserIcon } from "lucide-react"
+import { BookOpenIcon, CheckIcon, ClockIcon, AlertTriangleIcon, CalendarIcon, MicIcon, TrophyIcon, BarChart3Icon, UserIcon, ArrowUpDownIcon, LoaderIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
@@ -25,6 +25,7 @@ export default function Journal() {
   const [tasks, setTasks] = useState<JournalTask[]>([])
   const [celebratingTaskId, setCelebratingTaskId] = useState<string | null>(null)
   const [celebrationStage, setCelebrationStage] = useState<'gif' | 'static' | null>(null)
+  const [isPrioritizing, setIsPrioritizing] = useState(false)
 
   useEffect(() => {
     // Load tasks from localStorage
@@ -93,13 +94,66 @@ export default function Journal() {
     return grouped
   }
 
+  const handlePrioritizeTasks = async () => {
+    if (tasks.length === 0 || isPrioritizing) return
+    
+    setIsPrioritizing(true)
+    
+    try {
+      console.log('Starting task prioritization...')
+      
+      const response = await fetch('/api/prioritize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tasks }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to prioritize tasks')
+      }
+      
+      const result = await response.json()
+      console.log('Prioritization result:', result)
+      
+      if (result.success && result.prioritizedTasks) {
+        // Update tasks with new urgency levels
+        const updatedTasks = tasks.map(task => {
+          const prioritizedTask = result.prioritizedTasks.find((pt: any) => pt.id === task.id)
+          if (prioritizedTask) {
+            return { ...task, urgency: prioritizedTask.newUrgency as JournalTask['urgency'] }
+          }
+          return task
+        })
+        
+        // Sort tasks by urgency priority
+        const urgencyOrder = ['מאוד חשוב', 'חשוב', 'אפשר לחכות', 'מתי שתרצה']
+        const sortedTasks = updatedTasks.sort((a, b) => {
+          const aIndex = urgencyOrder.indexOf(a.urgency)
+          const bIndex = urgencyOrder.indexOf(b.urgency)
+          return aIndex - bIndex
+        })
+        
+        setTasks(sortedTasks)
+        localStorage.setItem('journalTasks', JSON.stringify(sortedTasks))
+        
+        console.log('Tasks successfully prioritized and sorted')
+      }
+    } catch (error) {
+      console.error('Error prioritizing tasks:', error)
+    } finally {
+      setIsPrioritizing(false)
+    }
+  }
+
   const groupedTasks = groupTasksByDate(tasks)
   const sortedDates = Object.keys(groupedTasks).sort((a, b) => 
     new Date(groupedTasks[b][0].date).getTime() - new Date(groupedTasks[a][0].date).getTime()
   )
 
   return (
-    <div dir="rtl" className="relative h-screen w-full overflow-hidden bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
+    <div dir="rtl" className="relative min-h-screen w-full bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
       {/* Status Bar */}
       <div className="flex justify-between items-center px-4 py-2">
         <div className="flex items-center gap-1">
@@ -113,14 +167,39 @@ export default function Journal() {
 
       {/* Header */}
       <div className="px-6 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-6">
-          <BookOpenIcon size={32} className="text-[#E0D6F0]" />
-          <h1 className="text-3xl font-medium text-[#E0D6F0]">יומן משימות</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <BookOpenIcon size={32} className="text-[#E0D6F0]" />
+            <h1 className="text-3xl font-medium text-[#E0D6F0]">יומן משימות</h1>
+          </div>
+          
+          {/* Prioritize Button */}
+          {tasks.length > 0 && (
+            <button
+              onClick={handlePrioritizeTasks}
+              disabled={isPrioritizing}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200",
+                isPrioritizing
+                  ? "bg-[#5A5D7C]/30 border-[#5A5D7C]/50 text-[#FAFAFA]/50 cursor-not-allowed"
+                  : "bg-[#E0D6F0]/20 border-[#E0D6F0]/30 text-[#E0D6F0] hover:bg-[#E0D6F0]/30 hover:border-[#E0D6F0]/50"
+              )}
+            >
+              {isPrioritizing ? (
+                <LoaderIcon size={16} className="animate-spin" />
+              ) : (
+                <ArrowUpDownIcon size={16} />
+              )}
+              <span className="text-sm font-medium">
+                {isPrioritizing ? 'מתעדף...' : 'תתעדף לי משימות'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Tasks Content */}
-      <div className="flex-1 overflow-y-auto px-6 pb-20">
+      <div className="px-6 pb-32">
         {tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <BookOpenIcon size={64} className="text-[#5A5D7C] mb-4" />
@@ -227,7 +306,7 @@ export default function Journal() {
       </div>
 
       {/* Bottom Tab Bar - עברית מלאה */}
-      <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
+      <div className="fixed bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10 z-50">
         <div className="flex justify-around items-center py-3 px-6">
           <Link href="/journal" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
             <BookOpenIcon size={24} />

@@ -1,10 +1,13 @@
 "use client"
 
-import { MicIcon, BrainIcon, BarChart3Icon, UserIcon, XIcon, CheckIcon, BookOpenIcon } from "lucide-react"
+import { MicIcon, BrainIcon, BarChart3Icon, UserIcon, XIcon, CheckIcon, BookOpenIcon, LogOutIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useVoiceRecording } from "@/hooks/useVoiceRecording"
+import { supabase } from "@/lib/supabase"
+import { User } from "@supabase/supabase-js"
+import { useRouter } from "next/navigation"
 
 interface Message {
   id: string
@@ -32,14 +35,31 @@ const WELCOME_MESSAGES = [
 // Waveform animation component
 const WaveformAnimation = () => {
   const [bars, setBars] = useState<number[]>(Array(8).fill(0.3))
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
+    setIsClient(true)
     const interval = setInterval(() => {
       setBars(prev => prev.map(() => Math.random() * 0.8 + 0.2))
     }, 150)
 
     return () => clearInterval(interval)
   }, [])
+
+  // Don't animate on server-side render to prevent hydration mismatch
+  if (!isClient) {
+    return (
+      <div className="flex items-center gap-1 h-8">
+        {Array(8).fill(0.3).map((height, index) => (
+          <div
+            key={index}
+            className="w-1 bg-[#E0D6F0] rounded-full transition-all duration-150"
+            style={{ height: `${height * 100}%` }}
+          />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center gap-1 h-8">
@@ -57,14 +77,27 @@ const WaveformAnimation = () => {
 // Recording timer component
 const RecordingTimer = ({ startTime }: { startTime: number }) => {
   const [elapsed, setElapsed] = useState(0)
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - startTime)
-    }, 1000)
+    setIsClient(true)
+    if (startTime > 0) {
+      const interval = setInterval(() => {
+        setElapsed(Date.now() - startTime)
+      }, 1000)
 
-    return () => clearInterval(interval)
+      return () => clearInterval(interval)
+    }
   }, [startTime])
+
+  // Don't show time on server-side render to prevent hydration mismatch
+  if (!isClient || startTime === 0) {
+    return (
+      <div className="text-[#E0D6F0] text-sm font-mono">
+        00:00
+      </div>
+    )
+  }
 
   const minutes = Math.floor(elapsed / 60000)
   const seconds = Math.floor((elapsed % 60000) / 1000)
@@ -93,61 +126,133 @@ const determineUrgency = (text: string): JournalTask['urgency'] => {
 }
 
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0)
   const [currentText, setCurrentText] = useState("")
   const [completedTexts, setCompletedTexts] = useState<string[]>([])
-  const [isTyping, setIsTyping] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [recordingStartTime, setRecordingStartTime] = useState<number>(0)
+  const router = useRouter()
   
   const { isRecording, transcript, startRecording, stopRecording, error } = useVoiceRecording()
 
+  // Authentication check - always runs, but only executes on client side
+  useEffect(() => {
+    // Only run authentication check on client side
+    if (typeof window === 'undefined') return
+
+    const getSession = async () => {
+      try {
+        const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError) {
+          console.error('Auth error:', authError)
+        }
+        
+        setUser(currentUser)
+        setLoading(false)
+        
+        if (!currentUser) {
+          console.log('No user found, redirecting to auth')
+          router.push('/auth')
+        } else {
+          console.log('User authenticated:', currentUser.email)
+        }
+      } catch (err) {
+        console.error('Unexpected auth error:', err)
+        setLoading(false)
+        router.push('/auth')
+      }
+    }
+
+    getSession()
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email)
+        setUser(session?.user ?? null)
+        if (!session?.user && event !== 'INITIAL_SESSION') {
+          router.push('/auth')
+        }
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [router])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/auth')
+  }
+
   // Load messages from localStorage on component mount
   useEffect(() => {
-    const savedMessages = localStorage.getItem('chatMessages')
-    if (savedMessages) {
-      try {
+    if (typeof window === 'undefined') return
+    
+    try {
+      const savedMessages = localStorage.getItem('chatMessages')
+      if (savedMessages && savedMessages !== 'undefined') {
         const parsedMessages = JSON.parse(savedMessages).map((msg: any) => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
         }))
         setMessages(parsedMessages)
-      } catch (error) {
-        console.error('Error loading saved messages:', error)
       }
+    } catch (parseError) {
+      console.error('Error loading saved messages:', parseError)
+      // Clear corrupted data
+      localStorage.removeItem('chatMessages')
     }
   }, [])
 
   // Save messages to localStorage whenever messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem('chatMessages', JSON.stringify(messages))
+    if (typeof window === 'undefined') return
+    
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem('chatMessages', JSON.stringify(messages))
+      } else {
+        localStorage.removeItem('chatMessages')
+      }
+    } catch (error) {
+      console.error('Error saving messages to localStorage:', error)
     }
   }, [messages])
-
-  // Clear chat function
-  const clearChat = () => {
-    setMessages([])
-    localStorage.removeItem('chatMessages')
-  }
 
   // Typewriter effect
   useEffect(() => {
     if (currentMessageIndex >= WELCOME_MESSAGES.length) return
 
     const text = WELCOME_MESSAGES[currentMessageIndex]
-    let charIndex = 0
     setCurrentText("")
-    setIsTyping(true)
 
+    // Messages 2 and 3 should appear instantly (no typing animation)
+    if (currentMessageIndex >= 2) {
+      setCurrentText(text)
+      
+      // Add completed text to array
+      setCompletedTexts(prev => [...prev, text])
+      
+      // Move to next message after delay - longer delay between 3rd and 4th messages
+      const delay = currentMessageIndex === 2 ? 1000 : 500 // 1 second delay after 3rd message
+      setTimeout(() => {
+        setCurrentMessageIndex(prev => prev + 1)
+      }, delay)
+      return
+    }
+
+    // Messages 0 and 1 use faster typing (20ms instead of 40ms)
+    let charIndex = 0
     const typeTimer = setInterval(() => {
       if (charIndex < text.length) {
         setCurrentText(text.slice(0, charIndex + 1))
         charIndex++
       } else {
         clearInterval(typeTimer)
-        setIsTyping(false)
         
         // Add completed text to array
         setCompletedTexts(prev => [...prev, text])
@@ -157,10 +262,30 @@ export default function Home() {
           setCurrentMessageIndex(prev => prev + 1)
         }, 500)
       }
-    }, 40)
+    }, 27) // 1.5x faster: 27ms instead of 40ms for first two messages
 
     return () => clearInterval(typeTimer)
   }, [currentMessageIndex])
+
+  // Clear chat function
+  const clearChat = () => {
+    setMessages([])
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('chatMessages')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#2a2a5e] to-[#3a3a7e] flex items-center justify-center">
+        <div className="text-white text-xl">טוען...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null // Will redirect to auth
+  }
 
   const handleVoiceButtonClick = async () => {
     if (isRecording) {
@@ -246,8 +371,14 @@ export default function Home() {
           }
           
           // Save to localStorage for now (will be replaced with proper storage later)
-          const existingTasks = JSON.parse(localStorage.getItem('journalTasks') || '[]')
-          localStorage.setItem('journalTasks', JSON.stringify([...existingTasks, task]))
+          if (typeof window !== 'undefined') {
+            try {
+              const existingTasks = JSON.parse(localStorage.getItem('journalTasks') || '[]')
+              localStorage.setItem('journalTasks', JSON.stringify([...existingTasks, task]))
+            } catch (error) {
+              console.error('Error saving task to localStorage:', error)
+            }
+          }
           console.log('Task saved to journal:', task)
         }
       } else {
@@ -282,15 +413,36 @@ export default function Home() {
           </div>
           <div className="text-xs">85%</div>
         </div>
-        <div className="text-sm font-medium">9:41</div>
-        {messages.length > 0 && (
+        
+        {/* User Info */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gradient-to-r from-[#E0D6F0] to-[#B8A9D9] rounded-full flex items-center justify-center">
+              <UserIcon className="w-3 h-3 text-[#1a1a2e]" />
+            </div>
+            <span className="text-xs text-[#E0D6F0]">{user?.email}</span>
+          </div>
           <button
-            onClick={clearChat}
-            className="text-xs text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors px-2 py-1 rounded"
+            onClick={handleLogout}
+            className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 rounded-md transition-colors"
+            title="התנתק"
           >
-            נקה שיחה
+            <LogOutIcon className="w-3 h-3 text-[#E0D6F0]" />
+            <span className="text-xs text-[#E0D6F0]">התנתק</span>
           </button>
-        )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-medium">9:41</div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              className="text-xs text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors px-2 py-1 rounded"
+            >
+              נקה שיחה
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Content Area */}

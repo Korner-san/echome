@@ -7,14 +7,51 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { User } from "@supabase/supabase-js"
 
+// Medal Display Component
+const MedalDisplay = ({ level }: { level: number }) => {
+  return (
+    <div className="flex items-center gap-1 justify-end flex-row-reverse">
+      {Array.from({ length: level }, (_, index) => (
+        <img
+          key={index}
+          src="/medal.png"
+          alt="מדליה"
+          className="w-8 h-8 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+        />
+      ))}
+    </div>
+  )
+}
+
+// Star Progress Component with Animation
+const StarProgress = ({ completed, total }: { completed: number; total: number }) => {
+  return (
+    <div className="flex items-center gap-1 justify-end flex-row-reverse">
+      {Array.from({ length: total }, (_, index) => (
+        <img
+          key={index}
+          src="/star.png"
+          alt="כוכב"
+          className={cn(
+            "w-5 h-5 object-contain transition-all duration-500 ease-in-out",
+            index < completed 
+              ? "opacity-100 drop-shadow-[0_0_8px_rgba(255,215,0,0.8)] scale-110 brightness-125" // Golden glow + scale for completed
+              : "opacity-30 grayscale scale-90" // Faded, grayscale and smaller for incomplete
+          )}
+          style={{
+            transitionDelay: index < completed ? `${index * 100}ms` : '0ms' // Staggered animation
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 interface TaskManagerLevel {
   id: string
   title: string
   description: string
-  color: string
-  bgColor: string
-  shadowColor: string
-  emoji: string
+  level: number // Medal level (1-5)
   isCompleted: boolean
   completedTasks: number
   totalTasks: number
@@ -32,10 +69,7 @@ const TASK_MANAGER_LEVELS: TaskManagerLevel[] = [
     id: 'beginner',
     title: 'מנהל משימות מתחיל',
     description: 'הצעדים הראשונים בניהול משימות',
-    color: 'text-green-400',
-    bgColor: 'from-green-400/20 to-green-600/20',
-    shadowColor: 'shadow-[0_0_20px_rgba(34,197,94,0.3)]',
-    emoji: '🟢',
+    level: 1,
     isCompleted: false,
     completedTasks: 0,
     totalTasks: 5,
@@ -51,10 +85,7 @@ const TASK_MANAGER_LEVELS: TaskManagerLevel[] = [
     id: 'advanced',
     title: 'מנהל משימות מתקדם',
     description: 'פיתוח כישורי ניהול משימות מתקדמים',
-    color: 'text-blue-400',
-    bgColor: 'from-blue-400/20 to-blue-600/20',
-    shadowColor: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
-    emoji: '🔵',
+    level: 2,
     isCompleted: false,
     completedTasks: 0,
     totalTasks: 5,
@@ -70,10 +101,7 @@ const TASK_MANAGER_LEVELS: TaskManagerLevel[] = [
     id: 'experienced',
     title: 'מנהל משימות מנוסה',
     description: 'מיומנות גבוהה בארגון וניהול משימות',
-    color: 'text-purple-400',
-    bgColor: 'from-purple-400/20 to-purple-600/20',
-    shadowColor: 'shadow-[0_0_20px_rgba(147,51,234,0.3)]',
-    emoji: '🟣',
+    level: 3,
     isCompleted: false,
     completedTasks: 0,
     totalTasks: 5,
@@ -89,10 +117,7 @@ const TASK_MANAGER_LEVELS: TaskManagerLevel[] = [
     id: 'expert',
     title: 'מנהל משימות מומחה',
     description: 'רמה מקצועית של ניהול משימות',
-    color: 'text-orange-400',
-    bgColor: 'from-orange-400/20 to-orange-600/20',
-    shadowColor: 'shadow-[0_0_20px_rgba(249,115,22,0.3)]',
-    emoji: '🟠',
+    level: 4,
     isCompleted: false,
     completedTasks: 0,
     totalTasks: 5,
@@ -108,10 +133,7 @@ const TASK_MANAGER_LEVELS: TaskManagerLevel[] = [
     id: 'professor',
     title: 'פרופסור לניהול משימות',
     description: 'מומחיות מלאה וחדשנות בניהול משימות',
-    color: 'text-yellow-400',
-    bgColor: 'from-yellow-400/20 to-yellow-600/20',
-    shadowColor: 'shadow-[0_0_20px_rgba(234,179,8,0.3)]',
-    emoji: '🟡',
+    level: 5,
     isCompleted: false,
     completedTasks: 0,
     totalTasks: 5,
@@ -144,6 +166,26 @@ export default function AchievementsPage() {
     getUser()
   }, [])
 
+  // Real-time updates for achievements
+  useEffect(() => {
+    if (user) {
+      const refreshProgress = () => {
+        loadUserProgress(user.id)
+      }
+
+      // Listen for storage changes (when achievements are updated)
+      window.addEventListener('storage', refreshProgress)
+      
+      // Also refresh every 5 seconds to catch any missed updates
+      const interval = setInterval(refreshProgress, 5000)
+
+      return () => {
+        window.removeEventListener('storage', refreshProgress)
+        clearInterval(interval)
+      }
+    }
+  }, [user])
+
   const loadUserProgress = async (userId: string) => {
     try {
       // טעינת התקדמות המשתמש מהמסד נתונים
@@ -157,8 +199,82 @@ export default function AchievementsPage() {
         return
       }
 
-      // כאן תהיה הלוגיקה לעדכון מצב המשימות בהתאם להתקדמות המשתמש
-      // לעת עתה נשאיר את הכל לא מושלם כדי להציג את המבנה
+      // חישוב מספר המשימות שנוצרו מ-localStorage
+      const storedTasks = JSON.parse(localStorage.getItem('tasks') || '[]')
+      const totalTasksCreated = storedTasks.length
+
+      // עדכון מצב הרמות בהתאם להישגים
+      const updatedLevels = levels.map(level => {
+        // חישוב מספר המשימות שהושלמו לפי הישגים
+        let completedTasks = 0
+        let isCompleted = false
+
+        // בדיקה לפי רמה
+        switch (level.id) {
+          case 'beginner':
+            // חיפוש הישגים של מתחיל
+            const beginnerAchievements = userAchievements?.filter(a => 
+              ['first_task', 'task_master_2', 'task_master_3', 'task_master_4', 'task_master_5'].includes(a.achievement_name)
+            ) || []
+            // הכוכבים מבוססים על מספר המשימות שנוצרו (מקסימום 5)
+            completedTasks = Math.min(totalTasksCreated, 5)
+            isCompleted = beginnerAchievements.length >= 5
+            break
+            
+          case 'advanced':
+            // חיפוש הישגים של מתקדם
+            const advancedAchievements = userAchievements?.filter(a => 
+              ['task_master_6', 'task_master_7', 'task_master_8', 'task_master_9', 'task_master_10'].includes(a.achievement_name)
+            ) || []
+            // הכוכבים מבוססים על מספר המשימות מעבר ל-5 (מקסימום 5 כוכבים)
+            completedTasks = Math.min(Math.max(totalTasksCreated - 5, 0), 5)
+            isCompleted = advancedAchievements.length >= 5
+            break
+            
+          case 'experienced':
+            // חיפוש הישגים של מנוסה
+            const experiencedAchievements = userAchievements?.filter(a => 
+              a.achievement_name.includes('experienced')
+            ) || []
+            // הכוכבים מבוססים על מספר המשימות מעבר ל-10 (מקסימום 5 כוכבים)
+            completedTasks = Math.min(Math.max(totalTasksCreated - 10, 0), 5)
+            isCompleted = experiencedAchievements.length >= 5
+            break
+            
+          case 'expert':
+            // חיפוש הישגים של מומחה
+            const expertAchievements = userAchievements?.filter(a => 
+              a.achievement_name.includes('expert')
+            ) || []
+            // הכוכבים מבוססים על מספר המשימות מעבר ל-15 (מקסימום 5 כוכבים)
+            completedTasks = Math.min(Math.max(totalTasksCreated - 15, 0), 5)
+            isCompleted = expertAchievements.length >= 5
+            break
+            
+          case 'professor':
+            // חיפוש הישגים של פרופסור
+            const professorAchievements = userAchievements?.filter(a => 
+              a.achievement_name.includes('professor')
+            ) || []
+            // הכוכבים מבוססים על מספר המשימות מעבר ל-20 (מקסימום 5 כוכבים)
+            completedTasks = Math.min(Math.max(totalTasksCreated - 20, 0), 5)
+            isCompleted = professorAchievements.length >= 5
+            break
+            
+          default:
+            completedTasks = 0
+            isCompleted = false
+        }
+
+        return {
+          ...level,
+          completedTasks,
+          isCompleted
+        }
+      })
+
+      setLevels(updatedLevels)
+      console.log('User progress loaded and synced:', updatedLevels)
       
     } catch (error) {
       console.error('Error loading user progress:', error)
@@ -189,29 +305,29 @@ export default function AchievementsPage() {
     <div dir="rtl" className="relative min-h-screen w-full bg-gradient-to-b from-[#5A5D7C] to-[#2F2F3A] text-[#FAFAFA]">
       {/* Status Bar */}
       <div className="flex justify-between items-center px-4 py-2">
-        <div className="text-sm font-medium">9:41</div>
         <div className="flex items-center gap-1">
           <div className="w-4 h-4 rounded-full border border-[#FAFAFA] flex items-center justify-center">
             <div className="w-2 h-2 bg-[#C8E8D5] rounded-full"></div>
           </div>
           <div className="text-xs">85%</div>
         </div>
+        <div className="text-sm font-medium">9:41</div>
       </div>
 
       {/* Header */}
-      <div className="px-6 py-4 flex items-center">
-        <Link href="/" className="mr-4">
-          <ArrowLeftIcon size={24} className="text-[#FAFAFA]" />
-        </Link>
+      <div className="px-6 py-4 flex items-center justify-end">
         <div className="flex items-center gap-3">
           <TrophyIcon size={32} className="text-[#E0D6F0]" />
           <h1 className="text-2xl font-medium text-[#E0D6F0]">הישגים</h1>
         </div>
+        <Link href="/" className="ml-4">
+          <ArrowLeftIcon size={24} className="text-[#FAFAFA]" />
+        </Link>
       </div>
 
       {/* Task Manager Achievement System */}
       <div className="px-6 pb-32">
-        <div className="mb-6">
+        <div className="mb-6 text-right">
           <h2 className="text-xl font-medium text-[#E0D6F0] mb-2">🎯 מנהל משימות</h2>
           <p className="text-sm text-[#FAFAFA]/70">התקדם דרך 5 דרגות של מיומנות בניהול משימות</p>
         </div>
@@ -223,7 +339,7 @@ export default function AchievementsPage() {
               className={cn(
                 "bg-[#2F2F3A]/50 backdrop-blur-sm rounded-xl border transition-all duration-300",
                 level.isCompleted 
-                  ? `border-opacity-80 ${level.shadowColor}` 
+                  ? "border-[#C8E8D5]/50 shadow-[0_0_20px_rgba(200,232,213,0.3)]" 
                   : "border-[#5A5D7C]/30 opacity-70"
               )}
             >
@@ -232,57 +348,50 @@ export default function AchievementsPage() {
                 className="p-6 cursor-pointer"
                 onClick={() => toggleLevel(level.id)}
               >
-                <div className="flex items-center gap-4">
-                  {/* Level Icon */}
-                  <div className={cn(
-                    "w-16 h-16 rounded-xl flex items-center justify-center transition-all duration-300",
-                    level.isCompleted
-                      ? `bg-gradient-to-br ${level.bgColor} shadow-lg`
-                      : "bg-[#5A5D7C]/40"
-                  )}>
-                    <div className="text-2xl">{level.emoji}</div>
+                <div className="w-full text-right">
+                  {/* Achievement Title - Right Aligned */}
+                  <div className="flex items-center justify-end gap-2 mb-4">
+                    {level.isCompleted && (
+                      <CheckIcon size={20} className="text-[#C8E8D5]" />
+                    )}
+                    <h3 className={cn(
+                      "text-lg font-medium",
+                      level.isCompleted ? "text-[#C8E8D5]" : "text-[#FAFAFA]/50"
+                    )}>
+                      {level.title}
+                    </h3>
                   </div>
+                  
+                  {/* Achievement Description - Right Aligned */}
+                  <p className={cn(
+                    "text-sm mb-4 text-right",
+                    level.isCompleted ? "text-[#FAFAFA]/80" : "text-[#FAFAFA]/40"
+                  )}>
+                    {level.description}
+                  </p>
 
-                  {/* Level Details */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className={cn(
-                        "text-lg font-medium",
-                        level.isCompleted ? level.color : "text-[#FAFAFA]/50"
-                      )}>
-                        {level.title}
-                      </h3>
-                      {level.isCompleted && (
-                        <CheckIcon size={20} className="text-[#C8E8D5]" />
+                  {/* Show Tasks Button - Right Aligned */}
+                  <div className="flex justify-start mb-4">
+                    <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                      <span className="text-xs text-[#FAFAFA]/60">
+                        {expandedLevels.has(level.id) ? 'הסתר משימות' : 'הצג משימות'}
+                      </span>
+                      {expandedLevels.has(level.id) ? (
+                        <ChevronUpIcon size={16} className="text-[#FAFAFA]/60" />
+                      ) : (
+                        <ChevronDownIcon size={16} className="text-[#FAFAFA]/60" />
                       )}
                     </div>
-                    
-                    <p className={cn(
-                      "text-sm mb-3",
-                      level.isCompleted ? "text-[#FAFAFA]/80" : "text-[#FAFAFA]/40"
-                    )}>
-                      {level.description}
-                    </p>
+                  </div>
 
-                    {/* Progress */}
-                    <div className="flex items-center justify-between">
-                      <span className={cn(
-                        "text-sm font-medium",
-                        level.isCompleted ? level.color : "text-[#FAFAFA]/40"
-                      )}>
-                        {level.completedTasks}/{level.totalTasks} משימות
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#FAFAFA]/60">
-                          {expandedLevels.has(level.id) ? 'הסתר משימות' : 'הצג משימות'}
-                        </span>
-                        {expandedLevels.has(level.id) ? (
-                          <ChevronUpIcon size={16} className="text-[#FAFAFA]/60" />
-                        ) : (
-                          <ChevronDownIcon size={16} className="text-[#FAFAFA]/60" />
-                        )}
-                      </div>
-                    </div>
+                  {/* Stars Row - Right Aligned */}
+                  <div className="flex justify-start mb-3">
+                    <StarProgress completed={level.completedTasks} total={5} />
+                  </div>
+                  
+                  {/* Medals Row - Right Aligned */}
+                  <div className="flex justify-start">
+                    <MedalDisplay level={level.level} />
                   </div>
                 </div>
               </div>
@@ -291,10 +400,18 @@ export default function AchievementsPage() {
               {expandedLevels.has(level.id) && (
                 <div className="px-6 pb-6">
                   <div className="bg-[#2F2F3A]/30 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-[#E0D6F0] mb-3">משימות לביצוע:</h4>
+                    <h4 className="text-sm font-medium text-[#E0D6F0] mb-3 text-right">משימות לביצוע:</h4>
                     <div className="space-y-3">
                       {level.tasks.map((task) => (
-                        <div key={task.id} className="flex items-center gap-3">
+                        <div key={task.id} className="flex items-center gap-3 justify-start">
+                          <span className={cn(
+                            "text-sm",
+                            task.isCompleted 
+                              ? "text-[#C8E8D5] line-through" 
+                              : "text-[#FAFAFA]/80"
+                          )}>
+                            {task.name}
+                          </span>
                           <div className={cn(
                             "w-5 h-5 rounded-full flex items-center justify-center border-2 transition-all duration-200",
                             task.isCompleted 
@@ -305,14 +422,6 @@ export default function AchievementsPage() {
                               <CheckIcon size={12} className="text-[#2F2F3A]" />
                             )}
                           </div>
-                          <span className={cn(
-                            "text-sm",
-                            task.isCompleted 
-                              ? "text-[#C8E8D5] line-through" 
-                              : "text-[#FAFAFA]/80"
-                          )}>
-                            {task.name}
-                          </span>
                         </div>
                       ))}
                     </div>
@@ -325,13 +434,13 @@ export default function AchievementsPage() {
 
         {/* Overall Progress Summary */}
         <div className="mt-8 bg-[#2F2F3A]/70 rounded-xl p-6">
-          <h2 className="text-xl font-medium mb-4 text-[#E0D6F0]">סיכום התקדמות</h2>
+          <h2 className="text-xl font-medium mb-4 text-[#E0D6F0] text-right">סיכום התקדמות</h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-[#C8E8D5]">
-                {levels.filter(l => l.isCompleted).length}
+              <div className="text-2xl font-bold text-[#FADDE3]">
+                {levels.reduce((sum, level) => sum + level.totalTasks, 0)}
               </div>
-              <div className="text-sm text-[#FAFAFA]/70">דרגות הושלמו</div>
+              <div className="text-sm text-[#FAFAFA]/70">סה"כ משימות</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-[#E0D6F0]">
@@ -340,10 +449,10 @@ export default function AchievementsPage() {
               <div className="text-sm text-[#FAFAFA]/70">משימות הושלמו</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-[#FADDE3]">
-                {levels.reduce((sum, level) => sum + level.totalTasks, 0)}
+              <div className="text-2xl font-bold text-[#C8E8D5]">
+                {levels.filter(l => l.isCompleted).length}
               </div>
-              <div className="text-sm text-[#FAFAFA]/70">סה"כ משימות</div>
+              <div className="text-sm text-[#FAFAFA]/70">דרגות הושלמו</div>
             </div>
           </div>
         </div>

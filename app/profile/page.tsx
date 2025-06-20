@@ -1,6 +1,6 @@
 import {
   ArrowLeftIcon,
-  TrophyIcon,
+  BrainIcon,
   MicIcon,
   BarChart3Icon,
   UserIcon,
@@ -32,7 +32,7 @@ export default function ProfilePage() {
         <Link href="/" className="mr-4">
           <ArrowLeftIcon size={24} className="text-[#FAFAFA]" />
         </Link>
-        <h1 className="text-2xl font-medium text-[#E0D6F0]">הפרופיל שלך</h1>
+        <h1 className="text-2xl font-medium text-[#E0D6F0]">Your Profile</h1>
       </div>
 
       {/* Main Content Area */}
@@ -45,42 +45,42 @@ export default function ProfilePage() {
             </div>
           </div>
           <div>
-            <h2 className="text-2xl font-medium text-[#FAFAFA] mb-1">אלכס מורגן</h2>
-            <p className="text-sm text-[#FAFAFA]/70 mb-2">חבר מאז מאי 2025</p>
+            <h2 className="text-2xl font-medium text-[#FAFAFA] mb-1">Alex Morgan</h2>
+            <p className="text-sm text-[#FAFAFA]/70 mb-2">Member since May 2025</p>
             <div className="px-3 py-1.5 bg-[#C8E8D5]/30 rounded-md inline-block">
-              <span className="text-xs font-medium text-[#C8E8D5]">רמת התפתחות 4</span>
+              <span className="text-xs font-medium text-[#C8E8D5]">Growth Level 4</span>
             </div>
           </div>
         </div>
 
         {/* Stats Summary */}
         <div>
-          <h2 className="text-xl font-medium mb-4 text-[#FAFAFA]">הסטטיסטיקות שלך</h2>
+          <h2 className="text-xl font-medium mb-4 text-[#FAFAFA]">Your Stats</h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-[#2F2F3A]/70 rounded-xl p-4 text-center shadow-sm">
               <p className="text-2xl font-bold text-[#E0D6F0] mb-1">28</p>
-              <p className="text-xs text-[#FAFAFA]/70">שיחות</p>
+              <p className="text-xs text-[#FAFAFA]/70">Sessions</p>
             </div>
             <div className="bg-[#2F2F3A]/70 rounded-xl p-4 text-center shadow-sm">
-              <p className="text-2xl font-bold text-[#C5DCF0] mb-1">12 שעות</p>
-              <p className="text-xs text-[#FAFAFA]/70">זמן כולל</p>
+              <p className="text-2xl font-bold text-[#C5DCF0] mb-1">12h</p>
+              <p className="text-xs text-[#FAFAFA]/70">Total Time</p>
             </div>
             <div className="bg-[#2F2F3A]/70 rounded-xl p-4 text-center shadow-sm">
               <p className="text-2xl font-bold text-[#C8E8D5] mb-1">5</p>
-              <p className="text-xs text-[#FAFAFA]/70">רצפים</p>
+              <p className="text-xs text-[#FAFAFA]/70">Streaks</p>
             </div>
           </div>
         </div>
 
         {/* Settings */}
         <div>
-          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">הגדרות</h2>
+          <h2 className="text-xl font-medium mb-5 text-[#FAFAFA]">Settings</h2>
           <div className="space-y-4 bg-[#2F2F3A]/70 rounded-xl p-4 shadow-sm">
             {[
-              { icon: Settings, label: "הגדרות אפליקציה" },
-              { icon: Bell, label: "התראות" },
-              { icon: Moon, label: "מראה" },
-              { icon: HelpCircle, label: "עזרה ותמיכה" },
+              { icon: Settings, label: "App Settings" },
+              { icon: Bell, label: "Notifications" },
+              { icon: Moon, label: "Appearance" },
+              { icon: HelpCircle, label: "Help & Support" },
             ].map((item, index) => (
               <div
                 key={index}
@@ -102,38 +102,38 @@ export default function ProfilePage() {
 
         {/* Subscription */}
         <div className="bg-gradient-to-r from-[#E0D6F0] to-[#C5DCF0] rounded-xl p-5 shadow-[0_0_25px_rgba(224,214,240,0.3)]">
-          <h3 className="text-[#2F2F3A] font-medium text-lg mb-2">מנוי פרימיום</h3>
+          <h3 className="text-[#2F2F3A] font-medium text-lg mb-2">Premium Membership</h3>
           <p className="text-[#2F2F3A]/90 text-sm mb-4 leading-relaxed">
-            פתח את כל נתיבי ההתפתחות והפיצ'רים להתבוננות עמוקה יותר
+            Unlock all growth paths and features for deeper self-reflection
           </p>
           <button className="bg-[#2F2F3A] text-[#FAFAFA] rounded-lg px-5 py-2.5 text-sm font-medium shadow-sm hover:bg-[#2F2F3A]/90 transition-all duration-200">
-            שדרג עכשיו
+            Upgrade Now
           </button>
         </div>
       </div>
 
-      {/* Bottom Tab Bar - עברית מלאה */}
+      {/* Bottom Tab Bar - Updated Order: Journal, Growth, Chat, Progress, Profile */}
       <div className="absolute bottom-0 left-0 right-0 bg-[#2F2F3A]/95 backdrop-blur-md border-t border-[#FAFAFA]/10">
         <div className="flex justify-around items-center py-3 px-6">
           <Link href="/journal" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <BookOpenIcon size={24} />
-            <span className="text-xs font-medium">יומן</span>
+            <span className="text-xs font-medium">Journal</span>
           </Link>
           <Link href="/growth" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
-            <TrophyIcon size={24} />
-            <span className="text-xs font-medium">הישגים</span>
+            <BrainIcon size={24} />
+            <span className="text-xs font-medium">Growth</span>
           </Link>
           <Link href="/" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <MicIcon size={24} />
-            <span className="text-xs font-medium">שיחה</span>
+            <span className="text-xs font-medium">Chat</span>
           </Link>
           <Link href="/progress" className="flex flex-col items-center gap-1 text-[#FAFAFA]/60 hover:text-[#FAFAFA] transition-colors">
             <BarChart3Icon size={24} />
-            <span className="text-xs font-medium">התקדמות</span>
+            <span className="text-xs font-medium">Progress</span>
           </Link>
           <Link href="/profile" className="flex flex-col items-center gap-1 bg-[#E0D6F0]/20 text-[#E0D6F0] rounded-lg px-3 py-2">
             <UserIcon size={24} />
-            <span className="text-xs font-medium">פרופיל</span>
+            <span className="text-xs font-medium">Profile</span>
           </Link>
         </div>
       </div>

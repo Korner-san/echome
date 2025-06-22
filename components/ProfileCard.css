@@ -1,0 +1,278 @@
+/* ProfileCard.css */
+
+.pc-card-wrapper {
+  --card-opacity: 0.8;
+  --pointer-x: 50%;
+  --pointer-y: 50%;
+  --background-x: 50%;
+  --background-y: 50%;
+  --pointer-from-center: 0;
+  --pointer-from-top: 0;
+  --pointer-from-left: 0;
+  --rotate-x: 0deg;
+  --rotate-y: 0deg;
+  --icon: none;
+  --grain: none;
+  --behind-gradient: none;
+  --inner-gradient: none;
+  
+  perspective: 1000px;
+  width: 320px;
+  height: 400px;
+  position: relative;
+}
+
+.pc-card {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--behind-gradient);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pc-card-wrapper.active .pc-card {
+  transition: none;
+}
+
+.pc-card-wrapper.active .pc-card {
+  transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+}
+
+.pc-inside {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: var(--inner-gradient);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.pc-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    600px circle at var(--pointer-x) var(--pointer-y),
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 40%
+  );
+  opacity: var(--pointer-from-center);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.pc-glare {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 60%
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+.pc-content {
+  position: relative;
+  z-index: 2;
+}
+
+.pc-avatar-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.avatar-container {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 16px;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.avatar-placeholder:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.avatar-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.pc-user-info {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 16px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pc-user-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pc-mini-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.pc-mini-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.mini-avatar-placeholder:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mini-avatar-icon {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.pc-user-text {
+  flex: 1;
+  text-align: left;
+}
+
+.pc-handle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #E0D6F0;
+  margin-bottom: 2px;
+}
+
+.pc-status {
+  font-size: 12px;
+  color: #C8E8D5;
+  opacity: 0.8;
+}
+
+.pc-contact-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #5A5D7C, #4A4D6C);
+  border: none;
+  border-radius: 8px;
+  color: #E0D6F0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pc-contact-btn:hover {
+  background: linear-gradient(135deg, #6A6D8C, #5A5D7C);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.pc-details {
+  text-align: center;
+  margin-top: auto;
+}
+
+.pc-details h3 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #E0D6F0;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.pc-details p {
+  font-size: 16px;
+  color: #C8E8D5;
+  opacity: 0.9;
+  margin: 0;
+}
+
+/* RTL Support */
+[dir="rtl"] .pc-user-details {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .pc-user-text {
+  text-align: right;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pc-card-wrapper {
+    width: 280px;
+    height: 360px;
+  }
+  
+  .avatar {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .pc-details h3 {
+    font-size: 20px;
+  }
+  
+  .pc-details p {
+    font-size: 14px;
+  }
+} 

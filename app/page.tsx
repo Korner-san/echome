@@ -26,8 +26,8 @@ interface JournalTask {
 }
 
 const WELCOME_MESSAGES = [
-  "איך אתה באמת מרגיש היום?",
-  "אני כאן כדי להקשיב ולהדריך אותך — בקצב שלך.",
+  "דבר איתי: מה צריך לקרות היום?",
+  "אם אתה לא יודע מאיפה להתחיל, אני פה כדי לשאול אותך את השאלות הנכונות",
   "אני כאן כדי ללוות אותך במסע ההתפתחות שלך.",
   "על מה היית רוצה להרהר היום?"
 ]
@@ -606,19 +606,52 @@ export default function Home() {
     try {
       console.log('Sending request to /api/chat')
       // Send to ChatGPT API
-      const response = await fetch('/api/chat', {
+            const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          userId: user?.id, // Send user ID for context
+          chatHistory: messages // Send chat history for context
+        }),
       })
 
       console.log('API Response status:', response.status)
-      const data = await response.json()
-      console.log('API Response data:', data)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('API Error Response:', errorText)
+        throw new Error(`שגיאת שרת: ${response.status}`)
+      }
 
-      if (response.ok) {
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text()
+        console.error('Non-JSON response received:', responseText)
+        throw new Error('השרת החזיר תשובה לא תקינה. אנא נסה שוב.')
+      }
+
+      let data
+      try {
+        const responseText = await response.text()
+        console.log('Raw response:', responseText)
+        data = JSON.parse(responseText)
+        console.log('Parsed API Response data:', data)
+      } catch (parseError) {
+        console.error('JSON parsing error:', parseError)
+        throw new Error('תשובה לא תקינה מהשרת - בעיית JSON')
+      }
+
+      // Validate response structure
+      if (!data.reply) {
+        console.error('Invalid response structure:', data)
+        throw new Error('תשובה לא תקינה מהשרת - חסרים נתונים')
+      }
+
+      if (true) { // Always true since we checked response.ok above
         // Add AI response to chat
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -641,13 +674,33 @@ export default function Home() {
             completed: false
           }
           
-          // Save to localStorage for now (will be replaced with proper storage later)
+          // Save to both localStorage and Supabase
           if (typeof window !== 'undefined') {
             try {
+              // Save to localStorage for immediate UI update
               const existingTasks = JSON.parse(localStorage.getItem('journalTasks') || '[]')
               localStorage.setItem('journalTasks', JSON.stringify([...existingTasks, task]))
+              
+              // Also save to Supabase database
+              const { createClient } = await import('@supabase/supabase-js')
+              const supabase = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+              )
+              
+              await supabase.from('tasks').insert({
+                user_id: user.id,
+                title: task.title,
+                content: task.content,
+                urgency: task.urgency,
+                completed: task.completed,
+                date: new Date().toISOString().split('T')[0], // Date only
+                created_at: new Date().toISOString()
+              })
+              
+              console.log('Task saved to both localStorage and database:', task)
             } catch (error) {
-              console.error('Error saving task to localStorage:', error)
+              console.error('Error saving task:', error)
             }
           }
           
@@ -735,7 +788,9 @@ export default function Home() {
             <div className="w-6 h-6 bg-gradient-to-r from-[#E0D6F0] to-[#B8A9D9] rounded-full flex items-center justify-center">
               <UserIcon className="w-3 h-3 text-[#1a1a2e]" />
             </div>
-            <span className="text-xs text-[#E0D6F0]">{user?.email}</span>
+            <span className="text-xs text-[#E0D6F0]">
+              {user?.email ? user.email.split('@')[0] : 'משתמש'}
+            </span>
           </div>
           <button
             onClick={handleLogout}

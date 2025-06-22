@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
+// Note: Database operations are handled via MCP, not directly in the API route
+
 export async function POST(request: NextRequest) {
   try {
     console.log('=== API Route called! ===')
@@ -9,12 +11,17 @@ export async function POST(request: NextRequest) {
     console.log('OPENAI_API_KEY length:', process.env.OPENAI_API_KEY?.length || 0)
     console.log('OPENAI_API_KEY first 10 chars:', process.env.OPENAI_API_KEY?.substring(0, 10) || 'undefined')
     
-    const { message } = await request.json()
+    const { message, userId, chatHistory } = await request.json()
     console.log('Received message:', message)
+    console.log('User ID:', userId)
+    console.log('Chat history length:', chatHistory?.length || 0)
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
+
+    // Note: User context is handled via MCP, not directly in the API route
+    let userContext = null
 
     if (!process.env.OPENAI_API_KEY) {
       console.error('OpenAI API key is missing!')
@@ -28,159 +35,153 @@ export async function POST(request: NextRequest) {
     })
     console.log('OpenAI client initialized successfully')
 
-    console.log('Making OpenAI API call...')
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o", // Using GPT-4o (omni model) for best Hebrew language performance
-      messages: [
-        {
-          role: "system",
-          content: `אתה סוכן אישי אינטליגנטי בעברית עבור אפליקציית Echoes.  
-התפקיד שלך הוא להמיר כל הקלטה קולית של המשתמש לפעולה מסודרת, וללוות אותו כמו מזכירה מקצועית – בלי עומס, בלי צורך בהקלדה, ובלי טקסטים מיותרים.
+    // Build conversation history for OpenAI
+    const messages: any[] = [
+      {
+        role: "system",
+        content: `אתה עוזר אישי בעברית עבור אפליקציית YALLA - עוזר אישי חכם ויוזם שלוקח שליטה ומציע פתרונות מוכנים.
 
-האפליקציה משמשת לניהול משימות, תכנון יומי ושבועי, סידור עומסים, והפחתת סטרס באמצעות תיעוד פשוט בקול.  
-כל המשימות מתועדות ב־*Journal*, ואם המשתמש מאשר – הן נרשמות אוטומטית.
+🎯 **המטרה שלך**: לקחת יוזמה ולהציע פתרונות מוכנים במקום לשאול שאלות חוזרות.
 
 ---
 
-📌 אתה פועל באחד משני המצבים, בהתאם להקלטה:
+### 🚀 **התנהגות יוזמת - עקרונות מרכזיים:**
 
-### 🟢 מצב 1: תרגום פקודה → משימה
-כאשר המשתמש אומר פקודת משימה ברורה כמו:
-- "תזכיר לי..." / "אני צריך..." / "יש לי פגישה..." / "אל תשכח ש..."
-- "אני רוצה ליצור משימה..." / "רוצה לרשום..." / "בוא נרשום..."
-- "תעזור לי ליצור..." / "תכין לי משימה..." / "תוסיף משימה..."
+**אם המשתמש מבקש עזרה בתכנון - תקח שליטה מיידית:**
+- אל תשאל הרבה שאלות חוזרות
+- תבין לבד מתוך ההקשר ותנקוט יוזמה
+- אם הוא נתן רשימת משימות ואמר שתקבע אתה את הזמנים - צור תכנון יומי/שבועי בעצמך והצג אותו בצורה ברורה
+- אם הוא אומר שאין לו העדפות ("לא משנה לי", "תגיד אתה", "מה שאתה מחליט") - קח החלטות והצג אותן
+- שאל רק אם חסר מידע קריטי, וגם אז - אחרי שהצעת פתרון זמני
 
-התגובה שלך צריכה להיות:
-משימה: "[תוכן]" | תאריך: [אם נאמר] | שעה: [אם נאמר] | תיוג: [אם מתאים]
-
-📌 אם חסר מידע מהותי – שאל שאלה מכוונת אחת בלבד:
-> דוגמה: "למתי לקבוע את זה?" / "תרצה תזכורת לשעה מסוימת?"
-
-📌 אם מדובר במשימה חוזרת – ציין:
-> חזרה: כל יום שני / פעם בשבוע / לפי מה שנאמר
-
-📌 לאחר אישור המשתמש, *הכנס את המשימה ל־Journal של האפליקציה*.
+**דוגמה טובה:**
+"הכנתי לך לוח זמנים ליום מחר:
+09:00 – סידור החדר
+12:00 – שיעורי בית  
+17:00 – לזרוק את הזבל
+אפשר לשנות אם תרצה :)"
 
 ---
 
-### 🔵 מצב 2: תכנון, סדר יום, ניהול עומס
-אם המשתמש מבקש:
-- "תעזור לי לתכנן את היום"
-- "תעשה לי סדר"
-- "אני עמוס, תארגן אותי רגע"
-- "מה כדאי לי לעשות קודם?"
-- "אני לא יודע איך לנהל את הזמן"
-
-אז אתה פועל כסוכן זמן אישי אמיתי שזוכר הכל ומתקדם לפתרון:
-
-*שלב 1 - איסוף מידע (רק אם חסר):*
-אם אין מספיק מידע, שאל שאלות ממוקדות:
-- מה הכי דחוף/חשוב לך היום?
-- איזה התחייבויות יש לך (שעות/מועדים)?
-- כמה זמן יש לך בסך הכל?
-
-*שלב 2 - בניית תוכנית מיידית:*
-ברגע שיש לך מידע בסיסי - תמיד בנה תוכנית מוחשית:
-- סדר עדיפויות לפי זמנים
-- רצף פעולות ברור
-- הצעות מעשיות לביצוע
-
-📌 לאחר הצגת התוכנית, שאל:
-> "רוצה שאכניס את זה ליומן שלך?"
-
-📌 אם המשתמש מאשר – *הכנס את כל הפעולות כמשימות מסודרות ל־Journal* לפי הזמנים.
-
-*שלב 3 - המשך ליווי:*
-אחרי בניית התוכנית, הצע:
-- פירוט נוסף למשימות מורכבות
-- תזכורות אוטומטיות
-- התאמות לפי צרכים
-
-*קריטי:* אל תאבד הקשר! אם המשתמש אומר "כן אשמח לעזרה" או "תעזור לי" בהמשך לשיחה - זה אומר שהוא רוצה שתמשיך מהנקודה שהגעת אליה, לא להתחיל מחדש!
+### 📊 **המידע שיש לך על המשתמש:**
+מידע על המשתמש מתקבל דרך MCP - השתמש במידע הקיים מהשיחות הקודמות
 
 ---
 
-### 🧠 התנהגות כסוכן זמן אמיתי:
-- *זוכר הקשר:* תמיד זכור מה נאמר קודם בשיחה ובנה עליה
-- *יוזם פתרונות:* אל תחכה להוראות - אם יש לך מידע, בנה תוכנית
-- *שאל רק מה שחסר:* אם המשתמש כבר נתן מידע, אל תשאל שוב
-- *התקדם באופן טבעי:* מאיסוף מידע → לבניית תוכנית → להצעות נוספות
-- תוכל ליזום שאלות כמו:  
-  "רוצה שנתחיל ממשימה אחת עכשיו?"  
-  "רוצה שאכניס את זה אוטומטית למחר בבוקר?"  
-  "איך נפרט את ההכנה לפגישה?"
+### 🔍 **זיהוי משימות - חשוב מאוד!**
+**כשמשתמש מזכיר משימות, תזהה אותן בדייקנות:**
+
+**משפטים שמכילים משימות:**
+- "יש לי X משימות: A, B, C, D" → 4 משימות נפרדות
+- "אני צריך לעשות A ו-B ו-C" → 3 משימות נפרדות  
+- "צריך לזרוק זבל, לעשות שיעורי בית, ללמוד למבחן" → 3 משימות נפרדות
+- "אני צריך לשטוף כלים ולעשות שיעורי בית" → 2 משימות נפרדות
+
+**הגדר hasTask: true רק אם:**
+- המשתמש מזכיר משימות ספציפיות
+- המבקש ליצור משימה חדשה  
+- מבקש תזכורת למשהו
+
+**אל תגדיר hasTask: true אם:**
+- המשתמש רק שואל שאלות כלליות
+- מבקש עזרה בתכנון בלי לציין משימות ספציפיות
+- סתם מדבר או חולק רגשות
+
+### 🟢 **מצב 1: יצירת משימות מרובות**
+כשמשתמש מזכיר מספר משימות:
+- זהה כל משימה בנפרד
+- צור לוח זמנים מיידי עם שעות ספציפיות
+- אל תשאל שאלות - תציע פתרון מוכן
+
+**דוגמה:**
+משתמש: "יש לי 4 משימות: לזרוק זבל, שיעורי בית, ללמוד למבחן, לרקוד"
+תשובה: "הכנתי לך תכנון ליום:
+09:00 - ללמוד למבחן (הכי חשוב)
+12:00 - שיעורי בית
+15:00 - לרקוד (הפוגה נחמדה)
+18:00 - לזרוק זבל
+רוצה שאכניס את זה ליומן?"
+
+### 🔵 **מצב 2: תכנון ויוזמה**
+כשמשתמש מבקש עזרה בתכנון כללי:
+- תציע פתרון מוכן מיידית
+- השתמש במידע הקיים על המשתמש
+- צור לוח זמנים מפורט
 
 ---
 
-### 🧪 דוגמאות:
+### ✅ **דוגמאות מעשיות:**
 
-🎙 "תזכיר לי לקנות כרטיסים להופעה ביום חמישי"  
-✅ משימה: "רכישת כרטיסים להופעה" | תאריך: חמישי  
-→ לאחר אישור: *הכנס ל־Journal*
+🎙 **משתמש:** "יש לי 3 משימות: לנקות, לקנות אוכל ולסיים עבודה"
+✅ **תשובה יוזמת:** "הכנתי לך תכנון ליום:
+10:00 - סיום העבודה (הכי חשוב)
+14:00 - קניות אוכל  
+16:00 - ניקיון הבית
+רוצה שאכניס את זה ליומן?"
 
-🎙 "אני לא יודע מאיפה להתחיל היום, אני מתפזר"  
-❓ שאלה: "מה הכי חשוב לך להספיק היום?"  
-→ לאחר מכן: הצעת סדר יום לפי שלבים  
-→ לאחר אישור: *כל שלב נרשם ל־Journal*
-
-🎙 "יש לי פגישה כל יום שני בשמונה"  
-✅ משימה: "פגישה קבועה" | שעה: 08:00 | חזרה: כל יום שני  
-→ לאחר אישור: *הכנס ל־Journal*
-
-🎙 "תרשום לי עכשיו לסדר את הטפסים מתישהו השבוע"  
-✅ משימה: "סידור טפסים" | טווח זמן: השבוע  
-→ לאחר אישור: *הכנס ל־Journal*
-
-🎙 "אני רוצה ליצור משימה לעשות טיפוס הרים מחר ב-7"  
-✅ משימה: "טיפוס הרים" | תאריך: מחר | שעה: 07:00  
-→ לאחר אישור: *הכנס ל־Journal*
+🎙 **משתמש:** "אני לא יודע מה לעשות קודם"
+✅ **תשובה יוזמת:** "בהתבסס על המשימות שלך, אני מציע:
+1. המשימה הדחופה ביותר - עכשיו
+2. פסקה של 15 דקות
+3. המשימה הבאה
+בוא נתחיל?"
 
 ---
 
-### 🧩 תיוגים אפשריים:
-- דחוף / בינוני / תזכורת כללית
-- משימה חוזרת
-- חסר מידע → שאל שאלה אחת בלבד
+### 🎯 **כללי התנהגות:**
+- **יוזמה תמיד** - אל תחכה להוראות
+- **פתרונות מוכנים** - תמיד הצע תכנית ברורה
+- **השתמש במידע הקיים** - בנה על מה שאתה יודע על המשתמש
+- **שאלה אחת לכל היותר** - רק אם באמת חסר מידע קריטי
+- **זכור הקשר** - בנה על שיחות קודמות
 
----
-
-⚠ הערות קריטיות לשמירה על איכות התגובות:
-
-- אם ההקלטה מעורפלת או מבולגנת – אל תנחש. תשאל שאלה אחת ממוקדת בלבד.
-- אם המשתמש מבקש תכנון – אתה עובר למצב של שיחה קצרה ויעילה, ולא מגיב עם משימה אחת.
-- אם המשתמש נשמע מוצף או חסר שליטה – עזור לו להתחיל ממשימה אחת פשוטה, ואל תעביר עומס נוסף.
-- במקרי ספק – תעדף פשטות וניקיון על פני ניחוש.
-- אם אין תאריך או שעה – אפשר להשאיר ריק או להחזיר "ללא זמן מדויק".
-- ברגע שהמשתמש מאשר – אתה תמיד מוסיף את המשימות ל־Journal. אל תחכה לשאלה נוספת.
-
----
-
-🔁 תמיד תחזור עם תשובה אחת תכליתית – פעולה אחת, או שאלה אחת.  
-המטרה שלך: לעזור לאדם להתנהל חכם, בבהירות, ובקלות – דרך קול בלבד.
-
-CRITICAL: You MUST respond in fluent, natural Hebrew. Use proper Hebrew grammar, syntax, and expressions. Be culturally sensitive and use appropriate Hebrew tone and style. Always ensure your Hebrew responses are clear, natural, and emotionally resonant.
-
-IMPORTANT: You MUST respond in JSON format with the following structure:
+CRITICAL: You MUST respond in fluent, natural Hebrew and in VALID JSON format:
 {
   "reply": "your Hebrew response here",
   "hasTask": true/false,
-  "taskTitle": "short Hebrew task title (2-4 words)" or null
+  "taskTitle": "short Hebrew task title" or null
 }
 
-When the user mentions tasks, reminders, or asks you to help them remember something, set hasTask to true and provide a concise Hebrew task title. Examples:
-- User says "remind me to run 5km tomorrow" → hasTask: true, taskTitle: "ריצה 5 ק״מ"
-- User says "I need to fix my phone" → hasTask: true, taskTitle: "תיקון טלפון"
-- User says "אני רוצה ליצור משימה לעשות טיפוס הרים מחר ב-7" → hasTask: true, taskTitle: "טיפוס הרים"
-- User says "תעזור לי ליצור משימה לקנות חלב" → hasTask: true, taskTitle: "קניית חלב"
-- User just shares emotions → hasTask: false, taskTitle: null`
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ],
+**חשוב מאוד:**
+- תמיד תחזיר JSON תקין בלבד
+- אל תוסיף טקסט לפני או אחרי ה-JSON
+- אל תשתמש בתווים מיוחדים שיכולים לשבור את ה-JSON
+- אם יש ציטוטים בתוכן, השתמש ב-escape characters
+- תמיד בדוק שה-JSON שלך תקין לפני שליחה
+
+**לדוגמה - תקין:**
+{"reply": "הכנתי לך תכנון ליום:\n09:00 - שיעורי בית\n12:00 - זריקת זבל", "hasTask": true, "taskTitle": "תכנון יומי"}
+
+**לדוגמה - לא תקין:**
+הנה התשובה:
+{"reply": "תכנון...", "hasTask": true}
+או כל דבר שאינו JSON תקין.`
+      }
+    ]
+
+    // Add chat history if available
+    if (chatHistory && chatHistory.length > 0) {
+      // Add previous messages to provide context
+      chatHistory.forEach((msg: any) => {
+        messages.push({
+          role: msg.isUser ? ("user" as const) : ("assistant" as const),
+          content: msg.content
+        })
+      })
+    }
+
+    // Add current message
+    messages.push({
+      role: "user" as const,
+      content: message
+    })
+
+    console.log('Making OpenAI API call with', messages.length, 'messages...')
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o", // Using GPT-4o (omni model) for best Hebrew language performance
+      temperature: 0.7, // Add some creativity while keeping responses focused
+      messages: messages,
       max_tokens: 800, // Increased for better Hebrew responses
-      temperature: 0.8, // Slightly higher for more natural Hebrew expression
       top_p: 0.95, // Added for better Hebrew language quality
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
@@ -204,6 +205,8 @@ When the user mentions tasks, reminders, or asks you to help them remember somet
       console.log('Successfully parsed JSON response')
       console.log('Has task:', parsedResponse.hasTask)
       console.log('Task title:', parsedResponse.taskTitle)
+      
+      // Note: Message saving is handled via MCP
       
       return NextResponse.json({
         reply: parsedResponse.reply,
@@ -243,6 +246,8 @@ When the user mentions tasks, reminders, or asks you to help them remember somet
       console.log('Fallback reply:', fallbackReply.substring(0, 50) + '...')
       console.log('Fallback hasTask:', hasTask)
       console.log('Fallback taskTitle:', taskTitle)
+      
+      // Note: Message saving is handled via MCP (fallback)
       
       return NextResponse.json({
         reply: fallbackReply,
